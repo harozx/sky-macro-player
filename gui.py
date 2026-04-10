@@ -840,6 +840,7 @@ class MacroGUI:
 
     def _load_hotkey_config(self):
         """Tải cấu hình cũ khi khởi động."""
+        self.pause_hotkey = "f9"  # Giá trị mặc định
         if not os.path.exists(HOTKEY_CONFIG_FILE):
             return
         try:

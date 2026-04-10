@@ -1,10 +1,22 @@
+# Python
 __pycache__/
 *.py[cod]
 *$py.class
+venv/
+.venv/
+*.egg-info/
 
-# VSCode
+# Build artifacts
+build/
+dist/
+*.spec
+*.exe
+*.zip
+
+# IDE
 .vscode/
+.idea/
 
-# Ignore testing sheets etc. if desired, but we probably want to keep sheets/
-# sheets/
+# User data (generated at runtime)
 hotkeys.json
+favorites.json

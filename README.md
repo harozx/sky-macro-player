@@ -1,58 +1,95 @@
-# 🎵 MACRO PLAYER
+# 🎵 Macro Player
 
-Ứng dụng Macro Player mạnh mẽ hỗ trợ chơi nhạc tự động trong game (Sky: Children of the Light, Heartopia...) với giao diện GUI thân thiện, luôn nổi trên màn hình và hỗ trợ Hotkey tùy chỉnh hoàn toàn.
-
----
-
-## 🌟 TÍNH NĂNG NỔI BẬT
-
-- **Giao diện trong suốt 🔆:** Có thể điều chỉnh độ mờ từ 20% đến 100%, không che khuất màn hình game.
-- **Mini-mode ⊟:** Thu gọn cửa sổ thành 1 thanh công cụ nhỏ gọn ngang màn hình.
-- **Gán Hotkey Tùy Chỉnh ⌨️:** Không gò bó với `F1-F8`. Bạn có thể tùy ý gán phím nào cũng được để tránh xung đột với các game (VD tránh F9 của Steam).
-- **Phát / Tạm Dừng Thông Minh ⏸️:** Sẵn sàng Tạm Dừng (Pause) ngay lập tức khi bạn cần chat trong game, nhấn lại phím để Tiếp Tục (Resume) phát tiếp từ vị trí đó. Không lo mất trớn!
-- **Tự Động Lưu Trữ (Cache) 💾:** Mọi thay đổi về phím tắt, bài hát yêu thích, trong suốt hay bố cục (Old/New) đều được lưu lại và tự khôi phục vào lần kế tiếp. Không cần phải Setup lại từ đầu mỗi lần mở!
-- **Trình Cài Đặt 1 Click ⚡:** File cài đặt có khả năng tự động tải và cài đặt Python, cài đặt thư viện cần thiết (`pynput`) nếu máy chưa có.
+A powerful auto-play music macro for rhythm games like **Sky: Children of the Light** and **Heartopia**. Features a sleek transparent GUI, customizable hotkeys, and always-on-top overlay.
 
 ---
 
-## 🚀 CÁCH CÀI ĐẶT & SỬ DỤNG
+## ✨ Features
 
-### 1. Khởi động (Phiên bản EXE Mì Ăn Liền)
-Bạn không cần phải cài đặt rườm rà. Chỉ cần tải về và chạy!
-👉 Tải về thư mục tải xuống chứa file **`MacroPlayer.exe`** và thư mục **`sheets/`**.
-👉 Nhấp đúp vào **`MacroPlayer.exe`** để mở ứng dụng. Không cần cài Python, không cần cài gì thêm!
-
-### 2. Tab Nhạc 📂
-- Là nơi hiển thị thư viện sheet nhạc nằm trong thư mục `sheets/`. 
-- **Tìm kiếm:** Gõ tên bài vào ô "🔍" để lọc bài hát.
-- **Phát/Dừng:** Bạn có thể bấm để nghe thử ngay lập tức.
-- **Thêm vào Album:** Nhấn nút ❤ để đưa bài vào danh sách bài tủ.
-
-### 3. Tab Hotkey ⌨️
-- **Gán bài hát:**
-  1. Sang **Tab Nhạc**, chọn 1 bài hát.
-  2. Quay lại **Tab Hotkey**, nhấn chữ **"Gán"** ở Slot tùy ý.
-- **Đổi Phím Mặc Định:** 
-  1. Thay vì dùng F1, F2..., bạn có thể click vào nút tên phím (Ví dụ nhấn vào chữ `F1`). Chữ sẽ đỏ lên biến thành `???`.
-  2. **Gõ phím mới bạn muốn** trên bàn phím (ví dụ ~, [, v.v).
-  3. Xong! (Nếu lỡ tay thì nhấn `ESC` để huỷ).
-  
-> Chỉ cần gán 1 lần! Lần sau mở app nó vẫn lưu y nguyên.
-
-### 4. Tab Cài Đặt ⚙️
-- **Bảng phím (Layout):** Game có nhiều kiểu sheet cũ và mới `QWE...` vs `ZXC...` Bạn có thể chuyển đổi linh hoạt.
-- **Trong Suốt (Alpha):** Kéo thanh trượt để phần mềm chìm vào game, không bị che mất tầm nhìn.
-- **Tạm Dừng / Tiếp Tục:** Phím mặc định là **`F9`**. Tương tự Slot Hotkey, tính năng Tạm Dừng cũng có thể **Đổi Phím** bằng cách click vào để gõ phím thay thế (để tránh nút record của Steam hay OBS).
+- **Transparent Overlay** — Adjustable opacity (20%–100%), doesn't block your game view
+- **Mini Mode** — Collapse to a compact floating toolbar
+- **Custom Hotkeys** — Assign any key to any slot (no more F-key conflicts with Steam/OBS)
+- **Pause & Resume** — Instantly pause mid-song and continue from the exact position
+- **Favorites Album** — Save your go-to songs for quick access
+- **Auto-Save Config** — All settings (hotkeys, layout, opacity) persist between sessions
+- **1-Click Setup** — Auto-installs Python & dependencies if not found
 
 ---
 
-## 🎮 KHI VÀO GAME (THỰC CHIẾN)
+## 🚀 Getting Started
 
-1. Mở `start.vbs`. Gán các bài hát vào Slot 1-8 ở màn hình Hotkey.
-2. Thu nhỏ cửa sổ lại bằng dấu **⊟ Mini Mode** (Hoặc nhét vào một góc, kéo thanh Trong suốt lên).
-3. Quay lại màn hình Game:
-   - Nhấn phím **Hotkey** bạn đã gán ➝ Bài sẽ tự động Play.
-   - Bất chợt có người chat hoặc kẹt quái? Nhấn **F9** (Hoặc phím Pause bạn cài) ➝ Nhạc dừng ngay lập tức!!
-   - Xong việc? Nhấn **F9** tiếp ➝ Đánh đàn tiếp tục hoàn hảo từ chỗ đứt quãng.
-   - Nhấn **F10** ➝ Huỷ & Dừng hẳn bài hát.
-   - Gặp lỗi không tắt được nhạc, kẹt phím? Nhấn **ESC**. Dừng khẩn cấp mọi thứ.
+### Option 1: Run from Source (Recommended)
+
+**Prerequisites:** Python 3.10+
+
+```bash
+# Clone the repo
+git clone https://github.com/harozx/macro_project.git
+cd macro_project
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Run
+python gui.py
+```
+
+### Option 2: Use the Launcher
+
+Double-click `start.vbs` — it auto-detects Python and installs dependencies if needed.
+
+---
+
+## 🎮 Usage
+
+### Tab: Songs 📂
+- Browse sheet music files from the `sheets/` folder
+- Search by name with the 🔍 filter
+- Click **Play** to preview, or **❤** to add to favorites
+
+### Tab: Hotkeys ⌨️
+1. Select a song in the **Songs** tab
+2. Go to **Hotkeys** tab → click **Assign** on any slot
+3. Click the key label (e.g. `F1`) to rebind to a custom key
+4. Press `ESC` to cancel rebinding
+
+### Tab: Settings ⚙️
+- **Key Layout** — Switch between `Old (YUIOP...)` and `New (ASDFG...)` mappings
+- **Opacity** — Slide to make the window transparent
+- **Pause Key** — Default `F9`, click to rebind
+
+### In-Game Controls
+
+| Key | Action |
+|---|---|
+| **Slot Hotkeys** | Play assigned song |
+| **F9** (or custom) | Pause / Resume |
+| **F10** | Stop song completely |
+| **ESC** | Emergency stop |
+
+---
+
+## 📁 Project Structure
+
+```
+macro_project/
+├── gui.py              # Main GUI application (Tkinter)
+├── macro_core.py       # Music playback engine
+├── start.vbs           # Windows launcher (auto-setup)
+├── setup.bat           # Auto-install Python & pynput
+├── requirements.txt    # Python dependencies
+├── sheets/             # Sheet music files (JSON format)
+└── hotkeys.json        # Auto-generated config (gitignored)
+```
+
+## 🛠 Tech Stack
+
+- **Python 3** — Core language
+- **Tkinter** — GUI framework (built-in)
+- **pynput** — Global keyboard hooks & key simulation
+
+---
+
+## 📄 License
+
+This project is open source and available for personal use.

@@ -1,14 +1,14 @@
 ' Macro Player Launcher
-' - Kiem tra Python va pynput
-' - Neu chua co: chay setup.bat de cai dat
-' - Neu da co: chay gui.py truc tiep (khong hien CMD)
+' - Check for Python & pynput
+' - If missing: run setup.bat to install
+' - If ready: launch gui.py silently (no CMD window)
 
 Dim objFSO, objShell, strDir
 Set objFSO   = CreateObject("Scripting.FileSystemObject")
 Set objShell = CreateObject("Shell.Application")
 strDir = objFSO.GetParentFolderName(WScript.ScriptFullName)
 
-' === KIEM TRA PYTHON ===
+' === CHECK PYTHON & PYNPUT ===
 Dim objExec, bNeedSetup
 bNeedSetup = False
 
@@ -18,20 +18,19 @@ objExec.StdOut.ReadAll()
 If objExec.ExitCode <> 0 Then bNeedSetup = True
 On Error GoTo 0
 
-' === KIEM TRA PYTHON CO TON TAI KHONG ===
+' === NEED SETUP? ===
 If bNeedSetup Then
     Dim answer
-    answer = MsgBox("Chua du cai dat (Python hoac pynput)." & Chr(13) & Chr(13) & _
-                    "Nhan YES de tu dong cai dat va chay." & Chr(13) & _
-                    "Nhan NO de thoat.", _
-                    vbYesNo + vbQuestion, "Macro Player - Can Cai Dat")
+    answer = MsgBox("Python or pynput not found." & Chr(13) & Chr(13) & _
+                    "Press YES to auto-install and run." & Chr(13) & _
+                    "Press NO to exit.", _
+                    vbYesNo + vbQuestion, "Macro Player - Setup Required")
     If answer = vbYes Then
-        ' Chay setup.bat voi quyen Admin va doi ket thuc
+        ' Run setup.bat with admin rights (needed for Python install)
         objShell.ShellExecute "cmd.exe", _
             "/c """ & strDir & "\setup.bat""", strDir, "runas", 1
     End If
 Else
-    ' === MOI THU OK: CHAY GUI KHONG HIEN CMD ===
-    objShell.ShellExecute "pythonw.exe", _
-        """" & strDir & "\gui.py""", strDir, "runas", 0
+    ' === ALL GOOD: LAUNCH WITHOUT ADMIN ===
+    CreateObject("WScript.Shell").Run "pythonw.exe """ & strDir & "\gui.py""", 0, False
 End If
