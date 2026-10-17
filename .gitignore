@@ -38,3 +38,4 @@ ui-preview*.png
 
 # Packaging output
 build/pyinstaller/
+.hypothesis/
