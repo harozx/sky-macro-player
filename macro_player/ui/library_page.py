@@ -69,6 +69,7 @@ class LibraryPage(QWidget):
     favorite_requested = Signal(object)
     play_all_requested = Signal(list, bool)
     import_requested = Signal()
+    undo_import_requested = Signal()
     edit_requested = Signal(object)
     layer_policy_changed = Signal(object, object)
 
@@ -88,6 +89,11 @@ class LibraryPage(QWidget):
         self.import_button = QPushButton(tr("Nhập sheet…"))
         self.import_button.setProperty("outline", True)
         self.import_button.setToolTip(tr("Chọn file .txt/.json hoặc kéo-thả file vào cửa sổ"))
+        self.undo_import_button = QPushButton()
+        self.undo_import_button.setProperty("outline", True)
+        self.undo_import_button.setAccessibleName(tr("Hoàn tác lần nhập sheet vừa rồi"))
+        self.undo_import_button.hide()
+        header.addWidget(self.undo_import_button)
         header.addWidget(self.import_button)
         self.summary = QLabel()
         self.summary.setObjectName("muted")
@@ -192,6 +198,7 @@ class LibraryPage(QWidget):
         favorite.clicked.connect(lambda: self._emit(self.favorite_requested))
         self.edit_button.clicked.connect(lambda: self._emit(self.edit_requested))
         self.import_button.clicked.connect(self.import_requested)
+        self.undo_import_button.clicked.connect(self.undo_import_requested)
         self.play_all_button.clicked.connect(
             lambda: self.play_all_requested.emit(self.visible_songs(), False))
         self.shuffle_button.clicked.connect(
@@ -215,6 +222,10 @@ class LibraryPage(QWidget):
         if not song.playable:
             parts.append(tr("Không hỗ trợ"))
         return "  ·  ".join(parts)
+
+    def show_undo_import(self, count: int) -> None:
+        self.undo_import_button.setText(tr("Hoàn tác nhập ({count})").format(count=count))
+        self.undo_import_button.setVisible(count > 0)
 
     def set_songs(self, songs: list[Song]) -> None:
         self.songs = songs

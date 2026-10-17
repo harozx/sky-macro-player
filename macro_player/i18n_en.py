@@ -588,4 +588,12 @@ EN: dict[str, str] = {
         '{before} → {after}',
     'chưa rõ':
         'unknown',
+    'Hoàn tác lần nhập sheet vừa rồi':
+        'Undo the last sheet import',
+    'Hoàn tác nhập ({count})':
+        'Undo import ({count})',
+    'Đã hoàn tác {count} bài vừa nhập.':
+        'Undid {count} imported songs.',
+    ' Giữ lại {count} bài đã bị sửa sau khi nhập.':
+        ' Kept {count} songs that were changed after the import.',
 }

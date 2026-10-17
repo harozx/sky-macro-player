@@ -82,7 +82,9 @@ def grid_candidates(events: Sequence[Event], tolerance_ms: float = 3) -> list[Gr
         return []
     common = collections.Counter(spacing).most_common(6)
     floor = max(2, common[0][1] * .15)
-    base = min(gap for gap, count in common if count >= floor)
+    frequent = [gap for gap, count in common if count >= floor]
+    # With no repeated gap (short hand recordings) fall back to the most common one.
+    base = min(frequent) if frequent else common[0][0]
     if base <= 0:
         return []
     result = []

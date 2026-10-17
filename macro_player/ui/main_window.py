@@ -133,6 +133,7 @@ class MainWindow(QMainWindow):
         self._preview_override: tuple[Song, tuple] | None = None
         self._restore_countdown: int | None = None
         self.sheet_editor: SheetEditorDialog | None = None
+        self._last_import: list = []
         self.loop_marks: dict[str, Any] = {"song": None, "a": None, "b": None}
         self._mini_position = self.settings.mini_position
         self._tray_hint_shown = False
@@ -298,6 +299,7 @@ class MainWindow(QMainWindow):
         page.import_requested.connect(self.choose_import_files)
         page.layer_policy_changed.connect(self.set_layer_policy)
         page.edit_requested.connect(self.open_sheet_editor)
+        page.undo_import_requested.connect(self.undo_last_import)
         page.list.currentItemChanged.connect(lambda *_: self._selection_changed())
         self.queue.play_requested.connect(self._play_queued_song)
         self.queue.save_playlist_requested.connect(self.save_playlist)
@@ -1020,15 +1022,19 @@ class MainWindow(QMainWindow):
                 return []
             action = dialog.conflict_action
         imported: list[Path] = []
+        records = []
         errors: list[str] = []
         for candidate in candidates:
             try:
-                result = self.library.import_file(candidate, action or "rename")
+                record = self.library.import_with_undo(candidate, action or "rename")
             except RepositoryError as exc:
                 errors.append(str(exc))
                 continue
-            if result is not None:
-                imported.append(result)
+            if record is not None:
+                records.append(record)
+                imported.append(record.path)
+        self._last_import = records
+        self.library_page.show_undo_import(len(records))
         self.refresh_library()
         if imported:
             first = self._song_for(self.library.relative_id(imported[0]))
@@ -1044,6 +1050,19 @@ class MainWindow(QMainWindow):
         else:
             self.dock.set_status(message + ".", "success")
         return imported
+
+    def undo_last_import(self) -> tuple[int, int]:
+        records, self._last_import = self._last_import, []
+        self.library_page.show_undo_import(0)
+        if not records:
+            return 0, 0
+        undone, kept = self.library.undo_import(records)
+        self.refresh_library()
+        message = tr("Đã hoàn tác {count} bài vừa nhập.").format(count=undone)
+        if kept:
+            message += tr(" Giữ lại {count} bài đã bị sửa sau khi nhập.").format(count=kept)
+        self.dock.set_status(message, "success" if not kept else "warning")
+        return undone, kept
 
     def dragEnterEvent(self, event) -> None:
         urls = event.mimeData().urls() if event.mimeData().hasUrls() else []

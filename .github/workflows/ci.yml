@@ -51,8 +51,10 @@ jobs:
       - name: Type check
         run: python -m mypy macro_player
 
-      - name: Run tests
-        run: python -m pytest
+      - name: Run tests with coverage
+        run: |
+          python -m coverage run -m pytest
+          python -m coverage report --fail-under=85
 
       - name: Build and inspect wheel artifact
         if: matrix.python-version == '3.11'

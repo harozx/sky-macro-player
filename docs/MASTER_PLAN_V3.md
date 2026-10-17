@@ -8,20 +8,25 @@ Ngày: 17/10/2026. Tài liệu này kế thừa `IMPROVEMENT_PLAN.md` và
 
 ---
 
-## 0. Tiến độ (cập nhật 17/10/2026)
+## 0. Tiến độ (cập nhật 17/10/2026, bản 3.1.0)
 
 | Giai đoạn | Trạng thái | Ghi chú |
 | --- | --- | --- |
 | 0 Bảo toàn | Xong | Commit v2, tag `v2.0.0`, LICENSE MIT |
-| 1 Kiến trúc | Xong | Một `MainWindow` trong `macro_player/ui/`, một controller, một parser; xóa `sky_ui_*`; dữ liệu ở `%LOCALAPPDATA%`. **Chưa** thêm ruff/mypy vào CI |
-| 2 Tiện lợi cốt lõi | Xong | F1–F10 |
-| 3 Nâng cao | Xong một phần | F11–F13, F15–F20 xong. F14: chọn cửa sổ game bất kỳ theo `.exe`; chưa có profile Heartopia đã xác minh trong game thật |
-| 4 UI/UX | Xong một phần | Đủ trạng thái chính, Ctrl+K, mini 2 hàng, DPI 125–200% (chụp với `QT_SCALE_FACTOR`). **Chưa** làm song ngữ VI/EN; chưa thử bàn phím/DPI trên màn hình thật |
-| 5 Phát hành | Xong phần tự động | PyInstaller one-folder + zip portable, script Inno Setup, CI build + smoke test + release khi push tag. Bộ cài chỉ build trên CI (máy dev không có Inno Setup) |
+| 1 Kiến trúc | Xong | Một `MainWindow` trong `macro_player/ui/`, một controller, một parser; xóa `sky_ui_*`; dữ liệu ở `%LOCALAPPDATA%`; ruff + mypy chạy trong CI |
+| 2 Tiện lợi cốt lõi | Xong | F1–F10; nhập sheet có xem trước và nút **Hoàn tác nhập** (xóa bản mới, khôi phục bản bị ghi đè, giữ file đã sửa sau đó) |
+| 3 Nâng cao | Xong phần code | F11–F13, F15–F20. F14: chọn cửa sổ game bất kỳ theo `.exe`; **chưa** xác minh Heartopia trong game thật |
+| 4 UI/UX | Xong phần code | Đủ trạng thái chính, Ctrl+K, mini 2 hàng, song ngữ VI/EN, DPI 125–200% (chụp với `QT_SCALE_FACTOR`). **Chưa** thử bàn phím/DPI trên màn hình thật |
+| 5 Phát hành | Xong phần tự động | PyInstaller one-folder + zip portable, Inno Setup, CI build + smoke test + release khi push tag. Lỗi CI của `v3.0.0` (script build không thấy package) đã sửa ở 3.1.0 |
+| Ngoài plan | Xong | Trình **Chỉnh sheet**: gộp lớp, cắt đoạn, chỉnh nhịp theo lưới, dịch tông, đổi tempo, nghe thử, luôn lưu bản mới |
 
-Kiểm chứng: 159 test tự động đạt; bản `.exe` chạy `--smoke-test` từ thư mục
-riêng, tự chép 118 sheet và nạp được âm thanh xem trước. Chưa kiểm thử phát
-thật trong Sky/Heartopia.
+Kiểm chứng tự động: 227 test (gồm 10 test property-based bằng hypothesis),
+độ phủ `macro_player/` 88% (CI chặn dưới 85%), ruff và mypy sạch; bản `.exe`
+chạy `--smoke-test` từ thư mục riêng, không cần cài package.
+
+Còn lại cần người dùng kiểm tra thực tế: phát trong Sky/Heartopia (kể cả
+Alt+Tab khi bật khóa cửa sổ), DPI và bàn phím trên màn hình thật, cài bộ cài
+trên máy Windows sạch.
 
 ## 1. Hiện trạng đã kiểm chứng
 

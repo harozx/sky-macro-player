@@ -113,6 +113,15 @@ class ImportCandidate:
         return self.error is None
 
 
+@dataclass(frozen=True, slots=True)
+class ImportRecord:
+    """An imported file and the bytes it replaced (None when it was new)."""
+
+    path: Path
+    previous: bytes | None
+    fingerprint: tuple[int, int]
+
+
 class Library:
     """Reads sheets below one trusted root and caches parsed sheets by file state."""
 
@@ -257,6 +266,12 @@ class Library:
 
     def import_file(self, candidate: ImportCandidate, action: str = "rename") -> Path | None:
         """Copy a validated sheet into the library; the source is never changed."""
+        record = self.import_with_undo(candidate, action)
+        return record.path if record is not None else None
+
+    def import_with_undo(self, candidate: ImportCandidate,
+                         action: str = "rename") -> ImportRecord | None:
+        """Like ``import_file`` but remember what is needed to undo the copy."""
         if not candidate.valid or action == "skip":
             return None
         name = candidate.target_name
@@ -268,9 +283,32 @@ class Library:
         destination = self.root / name
         try:
             if destination.exists() and destination.resolve() == candidate.source.resolve():
-                return destination
+                return None
+            previous = destination.read_bytes() if destination.exists() else None
             shutil.copy2(candidate.source, destination)
+            return ImportRecord(destination, previous, self._fingerprint(destination))
         except OSError as exc:
             raise RepositoryError(tr("Không thể chép '{name}': {exc}").format(
                 name=candidate.source.name, exc=exc)) from exc
-        return destination
+
+    def undo_import(self, records: Iterable[ImportRecord]) -> tuple[int, int]:
+        """Remove imported copies or restore what they overwrote.
+
+        A file changed after the import is left alone. Returns (undone, kept).
+        """
+        undone = kept = 0
+        for record in records:
+            try:
+                if self._fingerprint(record.path) != record.fingerprint:
+                    kept += 1
+                    continue
+                if record.previous is None:
+                    record.path.unlink()
+                else:
+                    record.path.write_bytes(record.previous)
+            except OSError:
+                kept += 1
+                continue
+            self._cache.pop(self.relative_id(record.path).casefold(), None)
+            undone += 1
+        return undone, kept

@@ -12,13 +12,14 @@ import zipfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
+# Running ``python packaging/build_exe.py`` puts only packaging/ on sys.path.
+sys.path.insert(0, str(ROOT))
 BUILD = ROOT / "build" / "pyinstaller"
 DIST = ROOT / "dist"
 NAME = "SkyMacroPlayer"
 
 
 def version() -> str:
-    sys.path.insert(0, str(ROOT))
     from macro_player import __version__
     return __version__
 
@@ -39,7 +40,7 @@ def build() -> Path:
     icon = make_icon(BUILD / "app.ico")
     command = [
         sys.executable, "-m", "PyInstaller", "--noconfirm", "--clean", "--windowed",
-        "--name", NAME, "--icon", str(icon),
+        "--name", NAME, "--icon", str(icon), "--paths", str(ROOT),
         "--distpath", str(DIST), "--workpath", str(BUILD), "--specpath", str(BUILD),
         "--add-data", f"{ROOT / 'sheets'};sheets",
         "--add-data", f"{ROOT / 'LICENSE'};.",

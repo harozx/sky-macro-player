@@ -208,3 +208,43 @@ def test_editor_preview_refused_while_playing(window):
     window.controller.busy = True
     assert not window.preview_events([(0.0, ("1Key0",))], "x")
     assert "dừng bài" in window.dock.status.text()
+
+
+# ------------------------------------------------------------- undo import
+def test_undo_import_removes_new_and_restores_overwritten(window, tmp_path):
+    root = window.library.root
+    original = (root / "layered.json").read_bytes()
+    outside = tmp_path / "incoming"
+    outside.mkdir()
+    for name, key in (("layered.json", "1Key5"), ("fresh.json", "1Key6")):
+        (outside / name).write_text(json.dumps({"songNotes": [{"time": 0, "key": key}]}),
+                                    encoding="utf-8")
+    imported = window.import_paths([outside], action="overwrite", confirm=False)
+    assert sorted(p.name for p in imported) == ["fresh.json", "layered.json"]
+    assert window.library_page.undo_import_button.isVisibleTo(window.library_page)
+    assert window.undo_last_import() == (2, 0)
+    assert (root / "layered.json").read_bytes() == original
+    assert not (root / "fresh.json").exists()
+    assert not window.library_page.undo_import_button.isVisibleTo(window.library_page)
+    assert window.undo_last_import() == (0, 0)
+
+
+def test_undo_import_keeps_files_edited_afterwards(window, tmp_path):
+    import os
+    outside = tmp_path / "incoming2"
+    outside.mkdir()
+    (outside / "new.json").write_text(json.dumps({"songNotes": [{"time": 0, "key": "1Key1"}]}),
+                                      encoding="utf-8")
+    [path] = window.import_paths([outside], confirm=False)
+    path.write_text(json.dumps({"songNotes": [{"time": 0, "key": "1Key2"},
+                                              {"time": 5, "key": "1Key3"}]}), encoding="utf-8")
+    os.utime(path, ns=(path.stat().st_atime_ns, path.stat().st_mtime_ns + 5_000_000))
+    assert window.undo_last_import() == (0, 1)
+    assert path.exists()
+    assert "Giữ lại 1" in window.dock.status.text()
+
+
+def test_grid_detection_survives_all_unique_gaps():
+    # Found by hypothesis: no repeated gap used to crash with min() of nothing.
+    events = ev((0, "1Key0"), (1, "1Key0"), (3, "1Key0"), (6, "1Key0"), (10, "1Key0"))
+    assert detect_grid(events) is not None or grid_candidates(events) == []

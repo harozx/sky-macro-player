@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "sky-macro-player"
-version = "3.0.0"
+version = "3.1.0"
 description = "Desktop music-sheet player for Sky and Heartopia"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -52,3 +52,11 @@ ignore_missing_imports = true
 [tool.ruff.lint.per-file-ignores]
 # Qt stylesheet rules read best one per line.
 "macro_player/ui/theme.py" = ["E501"]
+
+[tool.coverage.run]
+source = ["macro_player"]
+omit = ["macro_player/i18n_en.py"]
+
+[tool.coverage.report]
+show_missing = false
+skip_covered = true

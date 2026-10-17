@@ -21,7 +21,7 @@ the game loses focus.
   tones. Nothing is sent to the game or any other application.
 - **Add sheets in the app:** drag-and-drop `.txt`/`.json` files or folders, or
   use **Nhập sheet…** (Ctrl+O). Each file is validated first; duplicates can be
-  renamed, overwritten or skipped. The library refreshes when the folder
+  renamed, overwritten or skipped, and **Hoàn tác nhập** undoes the last import. The library refreshes when the folder
   changes.
 - **Sheet editor (Chỉnh sheet…):** merge 2Key/3Key layers, cut a section,
   snap notes to a beat grid (the grid is detected automatically, including
@@ -131,6 +131,9 @@ keeps this folder.
 ```powershell
 $env:QT_QPA_PLATFORM = "offscreen"
 .\.venv\Scripts\python.exe -m pytest -q
+.\.venv\Scripts\python.exe -m ruff check .
+.\.venv\Scripts\python.exe -m mypy macro_player
+.\.venv\Scripts\python.exe -m coverage run -m pytest; .\.venv\Scripts\python.exe -m coverage report
 .\.venv\Scripts\python.exe -m pip install -r requirements-build.txt
 .\.venv\Scripts\python.exe packaging\build_exe.py --zip
 .\dist\SkyMacroPlayer\SkyMacroPlayer.exe --smoke-test
@@ -138,7 +141,9 @@ $env:QT_QPA_PLATFORM = "offscreen"
 
 Tests never touch real user data: `tests/conftest.py` points
 `SKY_MACRO_DATA_DIR` at a temporary folder, and no test uses the real keyboard.
-CI runs the suite on Windows with Python 3.10–3.13, then builds the app, runs
+Property-based tests (hypothesis) feed random sheets to the parser and the sheet
+editor. CI runs ruff, mypy and the suite with coverage (minimum 85%) on Windows
+with Python 3.10–3.13, then builds the app, runs
 the packaged smoke test, and builds the Inno Setup installer. Pushing a `v*`
 tag publishes both files to a GitHub release.
 
