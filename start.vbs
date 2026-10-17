@@ -8,7 +8,7 @@ Set shellApp = CreateObject("Shell.Application")
 appDir = fso.GetParentFolderName(WScript.ScriptFullName)
 pythonPath = fso.BuildPath(appDir, ".venv\Scripts\python.exe")
 pythonwPath = fso.BuildPath(appDir, ".venv\Scripts\pythonw.exe")
-appPath = fso.BuildPath(appDir, "gui_qt.py")
+appPath = fso.BuildPath(appDir, "macro_player\app.py")
 setupPath = fso.BuildPath(appDir, "setup.bat")
 
 If Not fso.FileExists(appPath) Then
@@ -47,7 +47,8 @@ If result <> 0 Then
     WScript.Quit 5
 End If
 
-command = """" & pythonwPath & """ """ & appPath & """"
+shell.CurrentDirectory = appDir
+command = """" & pythonwPath & """ -m macro_player.app"
 
 On Error Resume Next
 result = shell.Run(command, 0, False)

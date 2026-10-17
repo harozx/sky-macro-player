@@ -56,10 +56,6 @@ class MacroPlayer:
             raise ValueError(tr("Bộ phím tùy chỉnh có phím bị trùng."))
         return {f"1Key{index}": key for index, key in enumerate(checked)}
 
-    def set_custom_layout(self, keys: Sequence[str]) -> None:
-        self.json_key_map = self.layout_map(keys)
-        self.current_layout = "custom"
-
     def _current_speed(self) -> float:
         try:
             value = float(self.speed)
@@ -75,14 +71,6 @@ class MacroPlayer:
                 layout_name=layout_name))
         self.current_layout = layout_name
         self.json_key_map = self.KEY_LAYOUTS[layout_name]["json_map"]
-
-    def get_layout_name(self):
-        if self.current_layout == "custom":
-            return tr("Bộ tùy chỉnh")
-        return tr(self.KEY_LAYOUTS[self.current_layout]["name"])
-
-    def _string_to_key(self, key_str):
-        return key_str
 
     def _input_allowed(self):
         if self.input_guard is None:
@@ -120,7 +108,7 @@ class MacroPlayer:
             return False, blocked_total
         pressed, primary_error, interrupted = [], None, False
         try:
-            for key in map(self._string_to_key, keys_str):
+            for key in keys_str:
                 if stop_event is not None and stop_event.is_set():
                     return False, blocked_total
                 if ((pause_event is not None and pause_event.is_set())

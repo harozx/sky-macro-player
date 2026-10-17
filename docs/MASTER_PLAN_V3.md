@@ -1,7 +1,7 @@
 # Kế hoạch cải tiến toàn diện — Sky Macro Player v3
 
-Ngày: 17/10/2026. Tài liệu này kế thừa `IMPROVEMENT_PLAN.md` và
-`REVIEW_PLAN_V2.md` (đã xử lý xong phần ổn định lõi) và đặt hướng cho v3:
+Ngày: 17/10/2026. Tài liệu này thay cho hai kế hoạch v2 trước đó (đã xử lý
+xong phần ổn định lõi; xem lịch sử git) và đặt hướng cho v3:
 **dọn kiến trúc, bổ sung tính năng tiện lợi, phát hành dạng .exe dùng ngay**.
 `UI_DESIGN.md` vẫn là nguồn thiết kế; các hạng mục UI phải qua skill
 `frontend-design` trước khi làm.
@@ -184,7 +184,7 @@ Sắp theo giá trị cho người dùng / chi phí.
 | --- | --- | --- | --- |
 | F11 | **Chế độ xem trước (Dry‑run)** | Phát vào bàn phím ảo 15 phím (lưới 3×5 như trong Sky) **không gửi phím ra hệ thống**; có thể kèm âm thanh tổng hợp đơn giản (QtMultimedia/sine) | Engine dùng `controller` giả; nút chuyển chế độ rõ ràng, mặc định tắt âm |
 | F12 | **Lưới phím trực quan khi phát thật** | Widget `key_grid` sáng phím đang nhấn, giúp người dùng biết app đang làm gì | Tôn trọng reduced motion |
-| F13 | **Chính sách 2Key/3Key** | Với 6 bài bị chặn: cho người dùng chọn *gộp lớp về 15 phím*, *chỉ phát lớp 1*, hoặc giữ chặn; xem trước số nốt bị ảnh hưởng; lưu lựa chọn theo từng bài | Không âm thầm bỏ tiền tố — đúng nguyên tắc ở `IMPROVEMENT_PLAN.md` P1‑01 |
+| F13 | **Chính sách 2Key/3Key** | Với 6 bài bị chặn: cho người dùng chọn *gộp lớp về 15 phím*, *chỉ phát lớp 1*, hoặc giữ chặn; xem trước số nốt bị ảnh hưởng; lưu lựa chọn theo từng bài | Không âm thầm bỏ tiền tố |
 | F14 | **Profile game** | Sky (PC/Steam), Heartopia: tên tiến trình, tiêu đề cửa sổ, layout, timing hold riêng; chọn cửa sổ mục tiêu thủ công khi có nhiều ứng viên | Mỗi profile phải được xác minh bằng phiên game thật trước khi bật mặc định |
 | F15 | **Trình chỉnh mapping phím** | Tạo layout tùy chỉnh (15 ô), import/export; phát hiện trùng phím với hotkey | Layout lỗi không được lưu |
 | F16 | **Ghi phím tắt bằng cách nhấn** | Ô "Nhấn tổ hợp phím…" thay cho gõ chuỗi; báo xung đột trước khi lưu | Phím nhạc của layout hiện tại bị cấm làm hotkey |

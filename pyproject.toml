@@ -19,9 +19,6 @@ sky-macro-player = "macro_player.app:main"
 [project.gui-scripts]
 sky-macro-player-gui = "macro_player.app:main"
 
-[tool.setuptools]
-py-modules = ["gui_qt", "macro_core"]
-
 [tool.setuptools.packages.find]
 include = ["macro_player*"]
 
@@ -31,12 +28,12 @@ include = ["macro_player*"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 qt_api = "pyside6"
-addopts = "-ra --basetemp=.test-tmp"
+addopts = "-ra --basetemp=.pytest-tmp"
 
 [tool.ruff]
 line-length = 100
 target-version = "py310"
-extend-exclude = ["build", "dist", "legacy", ".test-tmp"]
+extend-exclude = ["build", "dist", ".pytest-tmp"]
 
 [tool.ruff.lint]
 select = ["F", "E", "I", "B"]

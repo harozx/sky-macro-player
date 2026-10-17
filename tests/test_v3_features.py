@@ -32,7 +32,7 @@ from macro_player.ui.dialogs import CommandPalette, OnboardingWizard
 from macro_player.ui.main_window import MainWindow
 from macro_player.ui.widgets import HotkeyEdit, KeyGrid, NoteRunway, hotkey_from_event
 from macro_player.window_focus import WindowInfo, choose_target_window, pickable_windows
-from tests.test_macro_core import FakeClock, RecordingController, player, sheet
+from tests.test_engine import FakeClock, RecordingController, player, sheet
 
 
 # ---------------------------------------------------------------- engine

@@ -2,9 +2,8 @@ import uuid
 
 from PySide6.QtWidgets import QWidget
 
-import gui_qt
 import macro_player.app as app_module
-from gui_qt import acquire_instance_lock
+from macro_player.app import acquire_instance_lock
 
 
 def test_single_instance_lock_rejects_second_process(tmp_path):
@@ -35,9 +34,9 @@ def test_second_instance_requests_existing_window_activation(qtbot, monkeypatch)
 
     window = Window()
     qtbot.addWidget(window)
-    server = gui_qt.install_instance_server(window)
+    server = app_module.install_instance_server(window)
     try:
-        assert gui_qt.request_existing_instance()
+        assert app_module.request_existing_instance()
         qtbot.waitUntil(lambda: window.activations == 1, timeout=1000)
     finally:
         server.close()

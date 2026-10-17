@@ -1,41 +1,28 @@
 # Python
 __pycache__/
 *.py[cod]
-*$py.class
-venv/
 .venv/
+venv/
 *.egg-info/
 
-# Build artifacts
+# Build output (packaging/build_exe.py)
 build/
 dist/
 *.spec
-*.exe
-*.zip
+
+# Tool caches
+.pytest_cache/
+.pytest-tmp/
+.mypy_cache/
+.ruff_cache/
+.hypothesis/
+.coverage
+htmlcov/
+
+# Runtime data from versions before 3.0 (now in %LOCALAPPDATA%\SkyMacroPlayer)
+hotkeys.json
+favorites.json
 
 # IDE
 .vscode/
 .idea/
-
-# User data (generated at runtime)
-hotkeys.json
-favorites.json
-
-# Test, preview, and runtime log artifacts
-.test-tmp*/
-.ui-test-tmp*/
-ui-preview.png
-ui-preview-final.png
-logs/*.log
-
-# Tool caches
-.pytest_cache/
-.mypy_cache/
-.ruff_cache/
-.coverage
-htmlcov/
-ui-preview*.png
-
-# Packaging output
-build/pyinstaller/
-.hypothesis/

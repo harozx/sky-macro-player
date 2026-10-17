@@ -19,7 +19,7 @@ from macro_player.sheet_tools import (
     quantize,
     transpose,
 )
-from tests.test_macro_core import FakeClock, RecordingController
+from tests.test_engine import FakeClock, RecordingController
 
 KEYS = [f"{layer}Key{index}" for layer in (1, 2, 3) for index in range(15)]
 times = st.integers(min_value=0, max_value=600_000)

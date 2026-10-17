@@ -2,7 +2,7 @@ import threading
 
 import pytest
 
-from macro_core import MacroPlayer, SheetValidationError
+from macro_player.engine import MacroPlayer, SheetValidationError
 
 
 class FakeClock:

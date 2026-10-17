@@ -76,7 +76,7 @@ For development:
 ```powershell
 python -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -r requirements-dev.txt
-.\.venv\Scripts\python.exe gui_qt.py
+.\.venv\Scripts\python.exe -m macro_player.app
 ```
 
 ## Using the console
@@ -158,7 +158,7 @@ tag publishes both files to a GitHub release.
 ## Architecture
 
 - `macro_player/engine.py`: deterministic keyboard playback (speed, sections,
-  focus guard, guaranteed key release). `macro_core.py` re-exports it.
+  focus guard, guaranteed key release).
 - `macro_player/library.py`: sheet discovery, metadata, layer policies, import.
 - `macro_player/text_sheet.py`, `batch.py`: text-sheet parser and folder processing.
 - `macro_player/sheet_tools.py`: pure sheet edits (layers, cut, grid, transpose,
@@ -168,9 +168,8 @@ tag publishes both files to a GitHub release.
 - `macro_player/domain.py`, `repositories.py`, `paths.py`: models, validated
   JSON persistence, data locations.
 - `macro_player/ui/`: main window, pages, dock, mini player, dialogs, tray.
-- `macro_player/app.py`: entry point, single instance; `gui_qt.py` calls it.
+- `macro_player/app.py`: entry point and single instance (`python -m macro_player.app`).
 - `packaging/`: PyInstaller build script and Inno Setup installer.
-- `legacy/gui.py`: the old Tkinter interface, kept for reference only.
 
 The visual and interaction contract is documented in `docs/UI_DESIGN.md`.
 

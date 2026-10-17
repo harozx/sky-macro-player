@@ -85,11 +85,6 @@ class NoteEvent:
     time: float
     keys: Tuple[str, ...]
 
-    @property
-    def key(self) -> str | Tuple[str, ...]:
-        """Compatibility view for code that expects the original ``key`` field."""
-        return self.keys[0] if len(self.keys) == 1 else self.keys
-
 
 @dataclass(frozen=True)
 class SongSheet:
