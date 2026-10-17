@@ -113,6 +113,11 @@ class ImportCandidate:
         return self.error is None
 
 
+def path_fingerprint(path: Path) -> tuple[int, int]:
+    stat = Path(path).stat()
+    return stat.st_mtime_ns, stat.st_size
+
+
 @dataclass(frozen=True, slots=True)
 class ImportRecord:
     """An imported file and the bytes it replaced (None when it was new)."""

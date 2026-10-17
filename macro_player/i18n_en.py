@@ -596,4 +596,140 @@ EN: dict[str, str] = {
         'Undid {count} imported songs.',
     ' Giữ lại {count} bài đã bị sửa sau khi nhập.':
         ' Kept {count} songs that were changed after the import.',
+
+    # --- text sheets and batch processing
+    'Nhịp chuẩn':
+        'Timing on grid',
+    ' Nếu đây là sheet chữ, hãy dùng “Nhập sheet chữ…”.':
+        ' If this is a text sheet, use “Import text sheet…”.',
+    'Đã gộp lớp 2Key/3Key':
+        'Merged 2Key/3Key layers',
+    'Còn lớp 2Key/3Key':
+        'Still has 2Key/3Key layers',
+    'Nhịp lệch nhẹ, chưa chỉnh':
+        'Slightly uneven timing, not fixed',
+    'Nhịp không theo lưới rõ ràng — nên nghe thử':
+        'No clear beat grid — listen before playing',
+    'Phím chưa hỗ trợ: {keys}':
+        'Unsupported keys: {keys}',
+    'Đã chỉnh nhịp {count} nốt theo lưới {step} ms':
+        'Snapped {count} notes to a {step} ms grid',
+    'Dòng {line}, cột {column}: “{token}” — {message}':
+        'Line {line}, column {column}: “{token}” — {message}',
+    'hợp âm chưa đóng':
+        'chord is not closed',
+    'ký hiệu không hiểu':
+        'unknown symbol',
+    'hợp âm lồng nhau':
+        'nested chord',
+    'thiếu dấu mở hợp âm':
+        'missing chord opening bracket',
+    'không có phím này trong bộ phím đang dùng':
+        'this key is not in the current layout',
+    'không phải nốt Đô Rê Mi':
+        'not a Do Re Mi note',
+    'Công cụ':
+        'Tools',
+    'Nhập sheet chữ…':
+        'Import text sheet…',
+    'Xử lý cả thư mục sheet…':
+        'Process a sheet folder…',
+    'Chọn thư mục sheet đã tải về':
+        'Choose the downloaded sheet folder',
+    'Đã thêm {count} bài từ thư mục':
+        'Added {count} songs from the folder',
+    'Nhập sheet chữ':
+        'Import text sheet',
+    'Xử lý cả thư mục sheet':
+        'Process a sheet folder',
+    '; {count} bài nên nghe thử lại':
+        '; {count} songs should be checked by ear',
+    'Giữ nguyên':
+        'Unchanged',
+    'Đã xử lý':
+        'Processed',
+    'Cần nghe lại':
+        'Check by ear',
+    'Lỗi':
+        'Error',
+    'Tự nhận':
+        'Detect automatically',
+    "Số (1 2 3 5 6 1')":
+        "Numbers (1 2 3 5 6 1')",
+    'Đô Rê Mi':
+        'Do Re Mi',
+    'Chữ phím (y u i o p…)':
+        'Key letters (y u i o p…)',
+    "Dán sheet dạng số, Đô Rê Mi hoặc chữ phím. Dấu ' lên một quãng tám, dấu , xuống một quãng "
+    'tám; (…) hoặc […] là hợp âm; - hoặc _ là nghỉ một nhịp; dấu | được bỏ qua. Mỗi ký hiệu là '
+    'một bước nhịp.':
+        "Paste a sheet written as numbers, Do Re Mi or key letters. ' raises a note one "
+        'octave, , lowers it; (…) or […] is a chord; - or _ rests one step; | is ignored. '
+        'Every symbol is one step.',
+    'Kiểu sheet chữ':
+        'Text sheet notation',
+    'Quãng tám của nốt 1':
+        'Octave of note 1',
+    'Nốt 1 = phím đầu tiên (thấp)':
+        'Note 1 = first key (low)',
+    'Nốt 1 = phím thứ 8 (giữa)':
+        'Note 1 = 8th key (middle)',
+    'Số ký hiệu mỗi phách':
+        'Symbols per beat',
+    ' nhịp':
+        ' steps',
+    'Thêm khoảng nghỉ sau mỗi dòng (thường là cuối câu nhạc).':
+        'Add a rest after every line (usually the end of a phrase).',
+    'Kiểu':
+        'Notation',
+    'Quãng tám':
+        'Octave',
+    'Nhịp độ':
+        'Tempo',
+    'Nghỉ cuối dòng':
+        'Rest after each line',
+    'Nội dung sheet chữ':
+        'Text sheet content',
+    'Bỏ qua các ký hiệu lỗi khi lưu':
+        'Ignore unknown symbols when saving',
+    'Sheet chữ mới':
+        'New text sheet',
+    'Lưu thành bài mới':
+        'Save as new song',
+    'Xử lý thư mục sheet':
+        'Process sheet folder',
+    'Mỗi bài được kiểm tra; chỉ những chỉnh sửa an toàn mới được làm tự động. File gốc không '
+    'bị thay đổi, kết quả được thêm vào thư viện và có thể hoàn tác.':
+        'Every song is checked; only safe fixes are made automatically. Original files are not '
+        'changed; results are added to the library and can be undone.',
+    'Gộp lớp 2Key/3Key':
+        'Merge 2Key/3Key layers',
+    'Chỉnh nhịp bài lệch nhẹ':
+        'Fix slightly uneven timing',
+    'Chỉ chỉnh khi các nốt nằm quanh một lưới rõ ràng, lệch không quá 15 ms.':
+        'Only when notes sit around a clear grid, at most 15 ms off.',
+    'Bỏ qua bài cần nghe lại':
+        'Skip songs that need checking',
+    'Tên bài':
+        'Song name',
+    'Nhận là: {format} · {notes} nốt · {length}':
+        'Read as: {format} · {notes} notes · {length}',
+    'Dán sheet chữ vào ô phía trên để xem trước.':
+        'Paste a text sheet above to preview it.',
+    'File':
+        'File',
+    'Trạng thái':
+        'Status',
+    'Chi tiết':
+        'Details',
+    ' · {count} nốt ngoài 15 phím đã gập quãng tám':
+        ' · {count} notes beyond the 15 keys folded by an octave',
+    '{total} file · {changed} đã xử lý · {ok} giữ nguyên · {review} cần nghe lại · {error} lỗi':
+        '{total} files · {changed} processed · {ok} unchanged · {review} to check · {error} errors',
+    'Thêm {count} bài vào thư viện':
+        'Add {count} songs to the library',
+    '{count} ký hiệu mỗi phách':
+        '{count} symbols per beat',
+    '… và {count} lỗi khác':
+        '… and {count} more problems',
 }

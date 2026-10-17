@@ -13,6 +13,7 @@ from PySide6.QtWidgets import (
     QLineEdit,
     QListWidget,
     QListWidgetItem,
+    QMenu,
     QPushButton,
     QVBoxLayout,
     QWidget,
@@ -70,6 +71,8 @@ class LibraryPage(QWidget):
     play_all_requested = Signal(list, bool)
     import_requested = Signal()
     undo_import_requested = Signal()
+    text_import_requested = Signal()
+    batch_requested = Signal()
     edit_requested = Signal(object)
     layer_policy_changed = Signal(object, object)
 
@@ -93,7 +96,14 @@ class LibraryPage(QWidget):
         self.undo_import_button.setProperty("outline", True)
         self.undo_import_button.setAccessibleName(tr("Hoàn tác lần nhập sheet vừa rồi"))
         self.undo_import_button.hide()
+        self.tools_button = QPushButton(tr("Công cụ"))
+        self.tools_button.setProperty("outline", True)
+        self.tools_menu = QMenu(self.tools_button)
+        self.text_import_action = self.tools_menu.addAction(tr("Nhập sheet chữ…"))
+        self.batch_action = self.tools_menu.addAction(tr("Xử lý cả thư mục sheet…"))
+        self.tools_button.setMenu(self.tools_menu)
         header.addWidget(self.undo_import_button)
+        header.addWidget(self.tools_button)
         header.addWidget(self.import_button)
         self.summary = QLabel()
         self.summary.setObjectName("muted")
@@ -199,6 +209,8 @@ class LibraryPage(QWidget):
         self.edit_button.clicked.connect(lambda: self._emit(self.edit_requested))
         self.import_button.clicked.connect(self.import_requested)
         self.undo_import_button.clicked.connect(self.undo_import_requested)
+        self.text_import_action.triggered.connect(self.text_import_requested)
+        self.batch_action.triggered.connect(self.batch_requested)
         self.play_all_button.clicked.connect(
             lambda: self.play_all_requested.emit(self.visible_songs(), False))
         self.shuffle_button.clicked.connect(

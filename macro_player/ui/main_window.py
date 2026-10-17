@@ -32,7 +32,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from .. import __version__, paths
+from .. import __version__, batch, paths
 from ..diagnostics import build_report
 from ..domain import HistoryEntry, LibraryState, Settings, SongPreference
 from ..engine import MacroPlayer
@@ -43,7 +43,7 @@ from ..hotkeys import (
     with_legacy_defaults,
 )
 from ..i18n import set_language, tr
-from ..library import Library, Song
+from ..library import ImportRecord, Library, Song, path_fingerprint
 from ..playback import PlaybackController, load_song_events
 from ..repositories import LibraryStateRepository, RepositoryError, SettingsRepository
 from ..sheet_tools import save_new_sheet, to_sheet_payload
@@ -63,6 +63,7 @@ from .queue_panel import QueuePanel
 from .settings_page import SettingsPage
 from .sheet_editor import SheetEditorDialog
 from .sound import PreviewSynth
+from .text_import import BatchDialog, TextSheetDialog
 from .theme import STYLE
 from .tray import TrayController, app_icon
 from .widgets import KeyGrid, format_duration
@@ -132,7 +133,7 @@ class MainWindow(QMainWindow):
         self.cursor: tuple[str, int] | None = None  # type: ignore[assignment]
         self._preview_override: tuple[Song, tuple] | None = None
         self._restore_countdown: int | None = None
-        self.sheet_editor: SheetEditorDialog | None = None
+        self.sheet_editor: SheetEditorDialog | TextSheetDialog | None = None
         self._last_import: list = []
         self.loop_marks: dict[str, Any] = {"song": None, "a": None, "b": None}
         self._mini_position = self.settings.mini_position
@@ -300,6 +301,8 @@ class MainWindow(QMainWindow):
         page.layer_policy_changed.connect(self.set_layer_policy)
         page.edit_requested.connect(self.open_sheet_editor)
         page.undo_import_requested.connect(self.undo_last_import)
+        page.text_import_requested.connect(self.open_text_import)
+        page.batch_requested.connect(self.choose_batch_folder)
         page.list.currentItemChanged.connect(lambda *_: self._selection_changed())
         self.queue.play_requested.connect(self._play_queued_song)
         self.queue.save_playlist_requested.connect(self.save_playlist)
@@ -929,7 +932,7 @@ class MainWindow(QMainWindow):
         dialog.open()
         return dialog
 
-    def _close_sheet_editor(self, dialog: SheetEditorDialog) -> None:
+    def _close_sheet_editor(self, dialog: SheetEditorDialog | TextSheetDialog) -> None:
         if self._preview_override is not None:
             self.stop_playback()
         if self.sheet_editor is dialog:
@@ -974,11 +977,13 @@ class MainWindow(QMainWindow):
             return False
         return True
 
-    def save_edited_sheet(self, name: str, events: list, source: Song,
-                          dialog: SheetEditorDialog | None = None) -> Path | None:
+    def save_edited_sheet(self, name: str, events: list, source: Song | None,
+                          dialog: SheetEditorDialog | TextSheetDialog | None = None
+                          ) -> Path | None:
         if not events:
             return None
-        payload = to_sheet_payload(name, events, source=source.identity)
+        payload = to_sheet_payload(name, events,
+                                   source=source.identity if source is not None else None)
         try:
             path = save_new_sheet(self.library.root, name, payload)
         except OSError as exc:
@@ -995,6 +1000,75 @@ class MainWindow(QMainWindow):
         if dialog is not None:
             dialog.show_saved(path.name)
         return path
+
+    # ------------------------------------------------------- text and batch
+    def open_text_import(self) -> TextSheetDialog:
+        dialog = TextSheetDialog(self._key_map(), self)
+        dialog.preview_requested.connect(self.preview_events)
+        dialog.stop_preview_requested.connect(self.stop_playback)
+        dialog.save_requested.connect(
+            lambda name, events: self.save_edited_sheet(name, events, None, dialog))
+        dialog.finished.connect(lambda _: self._close_sheet_editor(dialog))
+        self.sheet_editor = dialog
+        dialog.open()
+        return dialog
+
+    def choose_batch_folder(self) -> None:
+        folder = QFileDialog.getExistingDirectory(
+            self, tr("Chọn thư mục sheet đã tải về"), str(Path.home()))
+        if folder:
+            self.batch_process([Path(folder)])
+
+    def batch_process(self, sources: list[Path], *, confirm: bool = True,
+                      merge: bool = True, fix_timing: bool = True,
+                      skip_review: bool = False) -> list[Path]:
+        keys = list(self._key_map().keys())
+
+        def run(merge_layers_: bool, fix: bool):
+            return batch.analyze(sources, keys, merge=merge_layers_, fix_timing=fix)
+
+        items = run(merge, fix_timing)
+        if not items:
+            self._show_error(tr("Không có file .txt/.json nào để nhập."))
+            return []
+        if confirm:
+            dialog = BatchDialog(items, run, self)
+            if not dialog.exec():
+                return []
+            selected = dialog.selected_items()
+        else:
+            selected = [item for item in items if item.importable
+                        and not (skip_review and item.status == "review")]
+        return self.apply_batch(selected)
+
+    def apply_batch(self, items: list) -> list[Path]:
+        records = []
+        errors: list[str] = []
+        for item in items:
+            try:
+                if item.changed and item.events:
+                    payload = to_sheet_payload(item.title, item.events, source=item.source.name)
+                    path = save_new_sheet(self.library.root, item.source.stem, payload)
+                    records.append(ImportRecord(path, None, path_fingerprint(path)))
+                else:
+                    record = self.library.import_with_undo(
+                        self.library.inspect_import(item.source), "rename")
+                    if record is not None:
+                        records.append(record)
+            except (OSError, RepositoryError) as exc:
+                errors.append(f"{item.source.name}: {exc}")
+        self._last_import = records
+        self.library_page.show_undo_import(len(records))
+        self.refresh_library()
+        review = sum(item.status == "review" for item in items)
+        message = tr("Đã thêm {count} bài từ thư mục").format(count=len(records))
+        if review:
+            message += tr("; {count} bài nên nghe thử lại").format(count=review)
+        if errors:
+            self._show_error(message + tr("; {0} lỗi: {1}").format(len(errors), errors[0]))
+        else:
+            self.dock.set_status(message + ".", "success" if not review else "warning")
+        return [record.path for record in records]
 
     # ------------------------------------------------------------- import
     def choose_import_files(self) -> None:
@@ -1419,6 +1493,8 @@ class MainWindow(QMainWindow):
             ("Mini player", self.toggle_mini),
             (tr("Nhập sheet"), self.choose_import_files),
             (tr("Chỉnh sheet bài đang chọn"), self.open_sheet_editor),
+            (tr("Nhập sheet chữ"), self.open_text_import),
+            (tr("Xử lý cả thư mục sheet"), self.choose_batch_folder),
             (tr("Phát tất cả bài đang hiển thị"),
              lambda: self.play_all(self.library_page.visible_songs())),
             (tr("Trộn bài đang hiển thị"),

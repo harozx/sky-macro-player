@@ -30,6 +30,14 @@ the game loses focus.
   key grid preview the result, **Nghe thử** plays it on the virtual keyboard,
   and **Lưu thành bản mới** always writes a new sheet; the original is never
   modified.
+- **Text sheets (Công cụ → Nhập sheet chữ…):** paste a sheet written as numbers
+  (`1 2 3 5 6 1'`), Do Re Mi (`Đô Rê Mi Son La`) or key letters (`y u i o p`).
+  `'`/`,` change octave, `(…)` is a chord, `-` rests; tempo and symbols per beat
+  are adjustable. Problems are listed by line and column; preview, listen, save.
+- **Batch processing (Công cụ → Xử lý cả thư mục sheet…):** check a whole
+  downloaded folder at once. Layers are merged and slightly uneven hand-played
+  timing is snapped only when a clear beat grid exists; anything uncertain is
+  marked “Cần nghe lại”. Originals stay untouched and the import can be undone.
 - **2Key/3Key sheets:** choose per song to merge every layer onto the 15 keys,
   play layer 1 only, or keep it blocked. Nothing is changed silently.
 - **Focus lock:** playback only types into the game window. Sky is detected by
@@ -152,6 +160,7 @@ tag publishes both files to a GitHub release.
 - `macro_player/engine.py`: deterministic keyboard playback (speed, sections,
   focus guard, guaranteed key release). `macro_core.py` re-exports it.
 - `macro_player/library.py`: sheet discovery, metadata, layer policies, import.
+- `macro_player/text_sheet.py`, `batch.py`: text-sheet parser and folder processing.
 - `macro_player/sheet_tools.py`: pure sheet edits (layers, cut, grid, transpose,
   tempo) and saving new sheets.
 - `macro_player/playback.py`: one Qt controller and worker thread per session.

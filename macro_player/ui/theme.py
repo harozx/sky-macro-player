@@ -45,13 +45,14 @@ QPushButton[primary="true"]:disabled {{ background: {Tokens.LIFTED_SLATE}; color
 QPushButton[danger="true"] {{ color: {Tokens.DANGER}; border-color: #673846; text-align: center; }}
 QPushButton[compact="true"] {{ padding: 6px 9px; text-align: center; }}
 QPushButton[outline="true"] {{ border: 1px solid {Tokens.BORDER}; text-align: center; }}
-QLineEdit, QComboBox, QSpinBox, QDoubleSpinBox {{ background: {Tokens.DEEP_SLATE};
+QLineEdit, QComboBox, QSpinBox, QDoubleSpinBox, QPlainTextEdit {{ background: {Tokens.DEEP_SLATE};
  border: 1px solid {Tokens.BORDER}; border-radius: 9px; padding: 8px 10px;
  selection-background-color: {Tokens.SKY_BLUE}; selection-color: {Tokens.CLOUD_INK}; }}
-QLineEdit:focus, QComboBox:focus, QSpinBox:focus, QDoubleSpinBox:focus {{ border: 2px solid {Tokens.SKY_BLUE}; }}
+QLineEdit:focus, QComboBox:focus, QSpinBox:focus, QDoubleSpinBox:focus, QPlainTextEdit:focus {{ border: 2px solid {Tokens.SKY_BLUE}; }}
 QComboBox QAbstractItemView {{ background: {Tokens.DEEP_SLATE}; border: 1px solid {Tokens.BORDER};
  selection-background-color: {Tokens.LIFTED_SLATE}; }}
 QListWidget, QTableWidget {{ background: transparent; border: 0; outline: 0; }}
+QPlainTextEdit {{ font-family: '{Tokens.UTILITY}', 'Consolas'; }}
 QListWidget::item {{ border-bottom: 1px solid #26384C; padding: 10px 8px; }}
 QListWidget::item:hover {{ background: #1D2C3E; }}
 QListWidget::item:selected {{ background: {Tokens.LIFTED_SLATE}; border-left: 3px solid {Tokens.SKY_BLUE}; }}

@@ -75,16 +75,28 @@ class GridInfo:
 SUBDIVISIONS = (1, 2, 3, 4, 6, 8)
 
 
-def grid_candidates(events: Sequence[Event], tolerance_ms: float = 3) -> list[GridInfo]:
-    """The most common gap and its subdivisions, each with its on-grid share."""
-    spacing = [round(gap) for gap in gaps(events)]
-    if len(spacing) < 4:
+def grid_candidates(events: Sequence[Event], tolerance_ms: float = 3,
+                    bucket_ms: int = 1) -> list[GridInfo]:
+    """The most common gap and its subdivisions, each with its on-grid share.
+
+    ``bucket_ms`` groups slightly different gaps (hand-played jitter) before
+    choosing the base gap, which is then refined to their average.
+    """
+    raw = gaps(events)
+    if len(raw) < 4:
         return []
-    common = collections.Counter(spacing).most_common(6)
-    floor = max(2, common[0][1] * .15)
-    frequent = [gap for gap, count in common if count >= floor]
-    # With no repeated gap (short hand recordings) fall back to the most common one.
-    base = min(frequent) if frequent else common[0][0]
+    if bucket_ms > 1:
+        clusters = _cluster(raw, bucket_ms)
+        floor = max(2, max(len(c) for c in clusters) * .15)
+        frequent = [c for c in clusters if len(c) >= floor]
+        chosen = min(frequent, key=lambda c: c[0]) if frequent else max(clusters, key=len)
+        base: float = round(sorted(chosen)[len(chosen) // 2], 1)
+    else:
+        common = collections.Counter(round(gap) for gap in raw).most_common(6)
+        floor = max(2, common[0][1] * .15)
+        frequent_gaps = [gap for gap, count in common if count >= floor]
+        # With no repeated gap (short hand recordings) fall back to the most common one.
+        base = min(frequent_gaps) if frequent_gaps else common[0][0]
     if base <= 0:
         return []
     result = []
@@ -93,6 +105,17 @@ def grid_candidates(events: Sequence[Event], tolerance_ms: float = 3) -> list[Gr
         if step >= 20:
             result.append(GridInfo(step, grid_ratio(events, step, tolerance_ms)))
     return result
+
+
+def _cluster(values: Sequence[float], width: float) -> list[list[float]]:
+    """Group sorted values whose neighbours are at most ``width`` apart."""
+    clusters: list[list[float]] = []
+    for value in sorted(values):
+        if clusters and value - clusters[-1][-1] <= width:
+            clusters[-1].append(value)
+        else:
+            clusters.append([value])
+    return clusters
 
 
 def detect_grid(events: Sequence[Event], tolerance_ms: float = 3,
