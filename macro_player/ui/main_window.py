@@ -6,18 +6,29 @@ through this window so Stop, shutdown and scheduled commands share one path.
 
 from __future__ import annotations
 
-import os
 import random
 import time
 from dataclasses import replace
 from pathlib import Path
-from typing import Mapping
+from typing import Any, Callable, Mapping
 
 from PySide6.QtCore import QFileSystemWatcher, QSignalBlocker, Qt, QTimer, QUrl, Signal, Slot
 from PySide6.QtGui import QAction, QDesktopServices, QKeySequence
 from PySide6.QtWidgets import (
-    QApplication, QButtonGroup, QComboBox, QFileDialog, QFrame, QHBoxLayout, QInputDialog,
-    QLabel, QLineEdit, QMainWindow, QMessageBox, QPushButton, QStackedWidget, QVBoxLayout,
+    QApplication,
+    QButtonGroup,
+    QComboBox,
+    QFileDialog,
+    QFrame,
+    QHBoxLayout,
+    QInputDialog,
+    QLabel,
+    QLineEdit,
+    QMainWindow,
+    QMessageBox,
+    QPushButton,
+    QStackedWidget,
+    QVBoxLayout,
     QWidget,
 )
 
@@ -26,14 +37,21 @@ from ..diagnostics import build_report
 from ..domain import HistoryEntry, LibraryState, Settings, SongPreference
 from ..engine import MacroPlayer
 from ..hotkeys import (
-    DefaultHotkeyService, DisabledHotkeyService, GlobalHotkeyService, with_legacy_defaults,
+    DefaultHotkeyService,
+    DisabledHotkeyService,
+    GlobalHotkeyService,
+    with_legacy_defaults,
 )
+from ..i18n import set_language, tr
 from ..library import Library, Song
 from ..playback import PlaybackController, load_song_events
 from ..repositories import LibraryStateRepository, RepositoryError, SettingsRepository
 from ..updates import UpdateChecker
 from ..window_focus import (
-    FocusService, WindowInfo, WindowsFocusService, pickable_windows,
+    FocusService,
+    WindowInfo,
+    WindowsFocusService,
+    pickable_windows,
 )
 from .dialogs import CommandPalette, ImportDialog, OnboardingWizard, WindowPickerDialog
 from .dock import PlaybackDock
@@ -75,6 +93,8 @@ class MainWindow(QMainWindow):
             self.settings = self.settings_repository.load()
         except RepositoryError as exc:
             self.settings, self.settings_error = Settings(), str(exc)
+        # Chosen before any widget exists; changing it takes effect on restart.
+        set_language(self.settings.language)
         self.state_repository = LibraryStateRepository(paths.library_state_file())
         self.state_error: str | None = None
         try:
@@ -85,7 +105,8 @@ class MainWindow(QMainWindow):
             try:
                 paths.seed_user_sheets()
             except OSError as exc:
-                self.settings_error = self.settings_error or f"Không thể chép sheet mẫu: {exc}"
+                self.settings_error = self.settings_error or tr(
+                    "Không thể chép sheet mẫu: {exc}").format(exc=exc)
             library = Library(paths.user_sheets_dir(), paths.favorites_file())
         self.library = library
         self.controller = controller or PlaybackController(self)
@@ -106,8 +127,8 @@ class MainWindow(QMainWindow):
         self.preview_mode = False
         self._session_preview = False
         self._session_from_queue = False
-        self.cursor: tuple[str, int] | None = None
-        self.loop_marks: dict[str, int | None] = {"song": None, "a": None, "b": None}
+        self.cursor: tuple[str, int] | None = None  # type: ignore[assignment]
+        self.loop_marks: dict[str, Any] = {"song": None, "a": None, "b": None}
         self._mini_position = self.settings.mini_position
         self._tray_hint_shown = False
         self._wide_layout: bool | None = None
@@ -149,7 +170,7 @@ class MainWindow(QMainWindow):
         self._watch_library()
         self.watcher.directoryChanged.connect(lambda _: self._refresh_timer.start())
         self.watcher.fileChanged.connect(lambda _: self._refresh_timer.start())
-        self._refresh_timer = QTimer(self)
+        self._refresh_timer: QTimer = QTimer(self)
         self._refresh_timer.setSingleShot(True)
         self._refresh_timer.setInterval(600)
         self._refresh_timer.timeout.connect(self.refresh_library)
@@ -157,19 +178,21 @@ class MainWindow(QMainWindow):
         if self.songs:
             self.library_page.list.setCurrentRow(0)
         if self.library.favorites_error:
-            self._show_error("Không thể đọc danh sách yêu thích; thư viện vẫn được mở. "
+            self._show_error(tr("Không thể đọc danh sách yêu thích; thư viện vẫn được mở. ")
                              + self.library.favorites_error)
         if self.state_error:
-            self._show_error(f"Không đọc được lịch sử nghe; dữ liệu cũ được giữ nguyên. "
-                             f"{self.state_error}")
+            self._show_error(tr("Không đọc được lịch sử nghe; dữ liệu cũ được giữ nguyên. "
+                             "{state_error}").format(state_error=self.state_error))
         if self.settings_error:
             self._show_error(self.settings_error)
         self.updates = UpdateChecker(self)
         self.updates.update_available.connect(self._update_available)
         self.updates.up_to_date.connect(
-            lambda: self.dock.set_status(f"Đang dùng bản mới nhất ({__version__}).", "success"))
+            lambda: self.dock.set_status(tr("Đang dùng bản mới nhất ({__version__}).").format(
+                __version__=__version__), "success"))
         self.updates.failed.connect(
-            lambda message: self.dock.set_status(f"Không kiểm tra được cập nhật: {message}"))
+            lambda message: self.dock.set_status(
+                tr("Không kiểm tra được cập nhật: {message}").format(message=message)))
         if show_onboarding and not self.settings.first_run_completed:
             QTimer.singleShot(300, self.run_onboarding)
         if show_onboarding and self.settings.check_updates:
@@ -212,27 +235,27 @@ class MainWindow(QMainWindow):
         for page in (self.library_page, self.hotkeys_page, self.settings_page):
             self.pages.addWidget(page)
         self.nav_buttons = []
-        for index, label in enumerate(("Thư viện", "Phím tắt", "Cài đặt")):
+        for index, label in enumerate((tr("Thư viện"), tr("Phím tắt"), tr("Cài đặt"))):
             button = QPushButton(label)
             button.setCheckable(True)
             button.setProperty("nav", True)
-            button.setAccessibleName(f"Mở {label}")
+            button.setAccessibleName(tr("Mở {label}").format(label=label))
             button.setChecked(index == 0)
             button.clicked.connect(lambda checked=False, page=index: self.show_page(page))
             self.nav_group.addButton(button)
             self.nav_buttons.append(button)
             rail_layout.addWidget(button)
-        self.queue_toggle = QPushButton("Hàng chờ")
+        self.queue_toggle = QPushButton(tr("Hàng chờ"))
         self.queue_toggle.setCheckable(True)
         self.queue_toggle.setChecked(True)
-        self.queue_toggle.setAccessibleName("Hiện hoặc ẩn hàng chờ")
+        self.queue_toggle.setAccessibleName(tr("Hiện hoặc ẩn hàng chờ"))
         rail_layout.addWidget(self.queue_toggle)
-        palette = QPushButton("Bảng lệnh")
-        palette.setToolTip("Ctrl+K: tìm bài và chạy lệnh nhanh")
+        palette = QPushButton(tr("Bảng lệnh"))
+        palette.setToolTip(tr("Ctrl+K: tìm bài và chạy lệnh nhanh"))
         palette.clicked.connect(self.open_command_palette)
         rail_layout.addWidget(palette)
         rail_layout.addStretch(1)
-        version = QLabel(f"PHIÊN BẢN {__version__}")
+        version = QLabel(tr("PHIÊN BẢN {__version__}").format(__version__=__version__))
         version.setObjectName("eyebrow")
         rail_layout.addWidget(version)
         content.addWidget(self.rail)
@@ -240,13 +263,13 @@ class MainWindow(QMainWindow):
         self.queue = QueuePanel()
         self.queue.set_playlists(sorted(self.library_state.playlists))
         content.addWidget(self.queue)
-        self.queue_toggle.setText("Ẩn hàng chờ")
+        self.queue_toggle.setText(tr("Ẩn hàng chờ"))
 
         self.key_strip = QFrame()
         self.key_strip.setObjectName("keyStrip")
         strip_layout = QHBoxLayout(self.key_strip)
         strip_layout.setContentsMargins(22, 4, 22, 4)
-        self.key_strip_label = QLabel("Bàn phím")
+        self.key_strip_label = QLabel(tr("Bàn phím"))
         self.key_strip_label.setObjectName("eyebrow")
         self.key_grid = KeyGrid()
         strip_layout.addWidget(self.key_strip_label)
@@ -258,7 +281,8 @@ class MainWindow(QMainWindow):
         self.dock = PlaybackDock()
         shell.addWidget(self.dock)
         self.settings_page.version_label.setText(
-            f"Phiên bản {__version__} · Dữ liệu: {paths.user_data_dir()}")
+            tr("Phiên bản {__version__} · Dữ liệu: {0}").format(
+                paths.user_data_dir(), __version__=__version__))
 
     def _connect(self) -> None:
         page = self.library_page
@@ -301,7 +325,8 @@ class MainWindow(QMainWindow):
         controller.progress_changed.connect(self._progress_status)
         controller.keys_pressed.connect(self._keys_pressed)
         controller.playback_started.connect(self._record_play)
-        controller.error.connect(lambda message: self._show_error(f"Lỗi phát nhạc: {message}"))
+        controller.error.connect(lambda message: self._show_error(
+            tr("Lỗi phát nhạc: {message}").format(message=message)))
         controller.finished.connect(self._playback_finished)
         controller.loader = self._load_for_playback
         sp = self.settings_page
@@ -323,6 +348,7 @@ class MainWindow(QMainWindow):
         sp.onboarding_requested.connect(self.run_onboarding)
         sp.check_updates_changed.connect(
             lambda value: self._save_or_restore(check_updates=value))
+        sp.language_changed.connect(self._set_language)
         sp.check_now_requested.connect(lambda: self.updates.check())
         sp.open_data_requested.connect(
             lambda: QDesktopServices.openUrl(QUrl.fromLocalFile(str(paths.user_data_dir()))))
@@ -365,7 +391,7 @@ class MainWindow(QMainWindow):
 
     def _set_queue_visible(self, visible: bool) -> None:
         self.queue.setVisible(visible)
-        self.queue_toggle.setText("Ẩn hàng chờ" if visible else "Hiện hàng chờ")
+        self.queue_toggle.setText(tr("Ẩn hàng chờ") if visible else tr("Hiện hàng chờ"))
 
     # ------------------------------------------------------------ library
     def _key_map(self) -> dict[str, str]:
@@ -449,7 +475,7 @@ class MainWindow(QMainWindow):
         self.dock.title.setText(song.title)
         self.dock.title.setToolTip(song.title)
         if self.controller.state in {"idle", "error"}:
-            self.dock.set_status("Đã chọn · nhấn Phát hoặc bấm Note Runway để chọn vị trí")
+            self.dock.set_status(tr("Đã chọn · nhấn Phát hoặc bấm Note Runway để chọn vị trí"))
         prefs = self.library_state.preferences.get(song.identity)
         self.dock.set_speed(prefs.speed if prefs and prefs.speed else self.settings.speed)
 
@@ -460,19 +486,21 @@ class MainWindow(QMainWindow):
             return False
         error = self._compatibility_error(song)
         if error:
-            self._show_error(f"Bài “{song.title}” chưa thể phát: {error}")
+            self._show_error(tr("Bài “{title}” chưa thể phát: {error}").format(
+                title=song.title, error=error))
             return False
         preview = self.preview_mode
         if not self.controller.busy:
             if self.settings.focus_lock_enabled and not preview:
                 window = self._locate_sky_window()
                 if window is None:
-                    self._show_error("Không tìm thấy cửa sổ game. Hãy mở game rồi nhấn Phát lại.")
+                    self._show_error(
+                        tr("Không tìm thấy cửa sổ game. Hãy mở game rồi nhấn Phát lại."))
                     return False
                 if not self.focus_service.activate(window):
                     self._show_error(
-                        "Windows chưa cho phép chuyển focus sang game. Hãy click vào game "
-                        "rồi nhấn Phát.")
+                        tr("Windows chưa cho phép chuyển focus sang game. Hãy click vào game "
+                        "rồi nhấn Phát."))
                     return False
                 self.active_sky_window = window
                 self._set_playback_guard(self._guard_for_target(window))
@@ -521,7 +549,7 @@ class MainWindow(QMainWindow):
             return False
         playable = [song for song in songs if song.playable]
         if not playable:
-            self._show_error("Không có bài phát được trong danh sách đang hiển thị.")
+            self._show_error(tr("Không có bài phát được trong danh sách đang hiển thị."))
             return False
         if shuffle:
             self._rng.shuffle(playable)
@@ -543,7 +571,7 @@ class MainWindow(QMainWindow):
             window = self.active_sky_window
             if (window is None or not self._valid_sky_target(window)
                     or not self.focus_service.activate(window)):
-                self._show_error("Hãy mở và chọn cửa sổ game trước khi tiếp tục.")
+                self._show_error(tr("Hãy mở và chọn cửa sổ game trước khi tiếp tục."))
                 return
             self.controller.resume_for_focus()
             self.focus_paused = False
@@ -565,7 +593,7 @@ class MainWindow(QMainWindow):
             return
         next_song = self.queue.peek_next()
         if next_song is None:
-            self.dock.set_status("Hàng chờ đang trống.", "warning")
+            self.dock.set_status(tr("Hàng chờ đang trống."), "warning")
             return
         if self.play_song(next_song):
             self._session_from_queue = True
@@ -607,9 +635,9 @@ class MainWindow(QMainWindow):
         self.mini.set_progress(start, duration)
 
     def _state_label(self, state: str) -> str:
-        label = STATE_LABELS.get(state, state)
+        label = tr(STATE_LABELS.get(state, state))
         if self._session_preview and state not in {"idle", "error"}:
-            label = f"Xem trước · {label.lower()}"
+            label = tr("Xem trước · {0}").format(label.lower())
         return label
 
     @Slot(str)
@@ -622,14 +650,15 @@ class MainWindow(QMainWindow):
             self.dock.runway.set_playing(False)
         elif state in {"countdown", "starting"}:
             self.dock.runway.set_playing(False)
-            self.dock.set_status("Đang chuẩn bị" if not self._session_preview else label)
+            self.dock.set_status(tr("Đang chuẩn bị") if not self._session_preview else label)
         elif state == "focus_paused":
             self.dock.runway.set_playing(False)
-            self.dock.set_status("Game mất focus · bản nhạc đã tạm dừng", "warning")
-            self.dock.play_button.setText("Trở lại game")
-            self.mini.play_button.setText("Trở lại game")
+            self.dock.set_status(tr("Game mất focus · bản nhạc đã tạm dừng"), "warning")
+            self.dock.play_button.setText(tr("Trở lại game"))
+            self.mini.play_button.setText(tr("Trở lại game"))
             if not self.isVisible() and self.tray is not None:
-                self.tray.notify("Đã tạm dừng", "Game mất focus. Click vào game để tiếp tục.")
+                self.tray.notify(
+                    tr("Đã tạm dừng"), tr("Game mất focus. Click vào game để tiếp tục."))
         elif self._session_preview and state != "idle":
             self.dock.set_status(label, "info")
         if self.tray is not None:
@@ -637,9 +666,10 @@ class MainWindow(QMainWindow):
 
     @Slot(int)
     def _countdown_status(self, remaining: int) -> None:
-        tail = "" if self._session_preview else " — hãy click vào cửa sổ game"
-        self.dock.set_status(f"Bắt đầu sau {remaining} giây{tail}")
-        self.mini.status.setText(f"Bắt đầu sau {remaining} giây")
+        tail = "" if self._session_preview else tr(" — hãy click vào cửa sổ game")
+        self.dock.set_status(tr("Bắt đầu sau {remaining} giây{tail}").format(
+            remaining=remaining, tail=tail))
+        self.mini.status.setText(tr("Bắt đầu sau {remaining} giây").format(remaining=remaining))
 
     @Slot(int)
     def _progress_status(self, elapsed: int) -> None:
@@ -698,21 +728,22 @@ class MainWindow(QMainWindow):
                     QTimer.singleShot(0, lambda s=next_song, g=generation:
                                       self._play_queue_if_current(s, g))
                 elif from_queue and self.tray is not None and not self.isVisible():
-                    self.tray.notify("Hết hàng chờ", "Đã phát xong tất cả bài trong hàng chờ.")
+                    self.tray.notify(
+                        tr("Hết hàng chờ"), tr("Đã phát xong tất cả bài trong hàng chờ."))
         if not self._closing and self.controller.state != "error" and not self.pending_song:
             if completed and from_queue and not self.queue.peek_next() \
                     and self.queue.repeat_mode == "off":
-                self.dock.set_status("Đã phát xong · hết hàng chờ", "success")
+                self.dock.set_status(tr("Đã phát xong · hết hàng chờ"), "success")
             else:
-                self.dock.set_status("Đã phát xong" if completed else "Đã dừng")
+                self.dock.set_status(tr("Đã phát xong") if completed else tr("Đã dừng"))
         if self.close_pending:
             self.close_pending = False
             QTimer.singleShot(0, self.close)
 
     @Slot(str)
     def _show_error(self, message: str) -> None:
-        self.dock.set_status(f"Cần xử lý: {message}", "danger")
-        self.mini.status.setText("Cần xử lý — mở cửa sổ chính")
+        self.dock.set_status(tr("Cần xử lý: {message}").format(message=message), "danger")
+        self.mini.status.setText(tr("Cần xử lý — mở cửa sổ chính"))
 
     # ------------------------------------------------------ speed, A–B
     @Slot(float)
@@ -744,7 +775,7 @@ class MainWindow(QMainWindow):
             else:
                 self.state_repository.save(state)
         except RepositoryError as exc:
-            self._show_error(f"Không thể lưu lịch sử/tùy chọn bài: {exc}")
+            self._show_error(tr("Không thể lưu lịch sử/tùy chọn bài: {exc}").format(exc=exc))
             return False
         self.library_state = state
         return True
@@ -760,13 +791,14 @@ class MainWindow(QMainWindow):
             return
         self.cursor = (song.identity, position)
         self._sync_markers(song)
-        self.dock.set_status(f"Sẽ phát từ {format_duration(position)} · nhấn Phát", "info")
+        self.dock.set_status(tr("Sẽ phát từ {0} · nhấn Phát").format(
+            format_duration(position)), "info")
 
     def set_loop_mark(self, which: str) -> None:
         song = self._marker_song()
         runway = self.dock.runway
         if song is None or not runway.duration or runway.duration <= 1:
-            self.dock.set_status("Chọn bài rồi bấm vào Note Runway để chọn vị trí trước.",
+            self.dock.set_status(tr("Chọn bài rồi bấm vào Note Runway để chọn vị trí trước."),
                                  "warning")
             return
         if self.controller.busy:
@@ -784,20 +816,23 @@ class MainWindow(QMainWindow):
             if abs(a - b) < 500:
                 self.loop_marks[which] = None
                 self._sync_markers(song)
-                self.dock.set_status("Đoạn A–B cần dài ít nhất 0,5 giây.", "warning")
+                self.dock.set_status(tr("Đoạn A–B cần dài ít nhất 0,5 giây."), "warning")
                 return
-            tail = " Áp dụng từ lần phát tới." if self.controller.busy else " Nhấn Phát để luyện."
+            tail = (tr(" Áp dụng từ lần phát tới.") if self.controller.busy
+                    else tr(" Nhấn Phát để luyện."))
             self.dock.set_status(
-                f"Lặp đoạn {format_duration(min(a, b))}–{format_duration(max(a, b))}.{tail}",
+                tr("Lặp đoạn {0}–{1}.{tail}").format(
+                    format_duration(min(a, b)), format_duration(max(a, b)), tail=tail),
                 "info")
         else:
-            self.dock.set_status(f"Đã đặt {which.upper()} tại {format_duration(position)}.", "info")
+            self.dock.set_status(tr("Đã đặt {0} tại {1}.").format(
+                which.upper(), format_duration(position)), "info")
 
     def clear_loop(self) -> None:
         self.loop_marks = {"song": None, "a": None, "b": None}
         self.cursor = None
         self._sync_markers(self._marker_song())
-        self.dock.set_status("Đã bỏ đoạn lặp và vị trí bắt đầu.")
+        self.dock.set_status(tr("Đã bỏ đoạn lặp và vị trí bắt đầu."))
 
     def _sync_markers(self, song: Song | None) -> None:
         runway = self.dock.runway
@@ -815,15 +850,15 @@ class MainWindow(QMainWindow):
             blocker = QSignalBlocker(self.dock.preview_button)
             self.dock.preview_button.setChecked(self.preview_mode)
             del blocker
-            self.dock.set_status("Hãy dừng bài trước khi đổi chế độ Xem trước.", "warning")
+            self.dock.set_status(tr("Hãy dừng bài trước khi đổi chế độ Xem trước."), "warning")
             return
         self.preview_mode = enabled
         if enabled:
             self.dock.keyboard_button.setChecked(True)
-            self.dock.set_status("Xem trước: phát trên bàn phím ảo, không gửi phím ra game.",
+            self.dock.set_status(tr("Xem trước: phát trên bàn phím ảo, không gửi phím ra game."),
                                  "info")
         else:
-            self.dock.set_status("Đã tắt Xem trước. Lần phát tới sẽ gửi phím vào game.")
+            self.dock.set_status(tr("Đã tắt Xem trước. Lần phát tới sẽ gửi phím vào game."))
 
     # ----------------------------------------------------------- favorites
     @Slot(object)
@@ -833,7 +868,7 @@ class MainWindow(QMainWindow):
         try:
             self.library.save_favorites(item.identity for item in updated if item.favorite)
         except RepositoryError as exc:
-            self._show_error(f"Không thể lưu danh sách yêu thích: {exc}")
+            self._show_error(tr("Không thể lưu danh sách yêu thích: {exc}").format(exc=exc))
             return
         self.songs = updated
         self.library_page.set_songs(updated)
@@ -846,13 +881,15 @@ class MainWindow(QMainWindow):
         if refreshed is not None:
             self.library_page.select_song(refreshed)
             self.dock.set_status(
-                f"“{song.title}”: {'đã phát được' if refreshed.playable else 'vẫn bị chặn'}.",
+                tr("“{title}”: {result}.").format(
+                    title=song.title,
+                    result=tr("đã phát được") if refreshed.playable else tr("vẫn bị chặn")),
                 "success" if refreshed.playable else "warning")
 
     # ------------------------------------------------------------- import
     def choose_import_files(self) -> None:
         files, _ = QFileDialog.getOpenFileNames(
-            self, "Nhập sheet", str(Path.home()), "Sheet nhạc (*.txt *.json)")
+            self, tr("Nhập sheet"), str(Path.home()), tr("Sheet nhạc (*.txt *.json)"))
         if files:
             self.import_paths([Path(file) for file in files])
 
@@ -866,7 +903,7 @@ class MainWindow(QMainWindow):
             elif source.is_file():
                 files.append(source)
         if not files:
-            self._show_error("Không có file .txt/.json nào để nhập.")
+            self._show_error(tr("Không có file .txt/.json nào để nhập."))
             return []
         candidates = [self.library.inspect_import(path) for path in files]
         if confirm:
@@ -891,11 +928,11 @@ class MainWindow(QMainWindow):
                 self.show_page(0)
                 self.library_page.select_song(first)
         skipped = len(candidates) - len(imported) - len(errors)
-        message = f"Đã nhập {len(imported)} bài"
+        message = tr("Đã nhập {0} bài").format(len(imported))
         if skipped:
-            message += f", bỏ qua {skipped}"
+            message += tr(", bỏ qua {skipped}").format(skipped=skipped)
         if errors:
-            self._show_error(message + f"; {len(errors)} lỗi: {errors[0]}")
+            self._show_error(message + tr("; {0} lỗi: {1}").format(len(errors), errors[0]))
         else:
             self.dock.set_status(message + ".", "success")
         return imported
@@ -917,21 +954,22 @@ class MainWindow(QMainWindow):
     def save_playlist(self, name: str | None = None) -> bool:
         songs = self.queue.songs()
         if not songs:
-            self._show_error("Hàng chờ đang trống; không có gì để lưu.")
+            self._show_error(tr("Hàng chờ đang trống; không có gì để lưu."))
             return False
         if name is None:
-            name, accepted = QInputDialog.getText(self, "Lưu playlist", "Tên playlist:")
+            name, accepted = QInputDialog.getText(self, tr("Lưu playlist"), tr("Tên playlist:"))
             if not accepted:
                 return False
         name = name.strip()
         if not name:
-            self._show_error("Tên playlist không được để trống.")
+            self._show_error(tr("Tên playlist không được để trống."))
             return False
         playlists = dict(self.library_state.playlists)
         playlists[name] = tuple(song.identity for song in songs)
         if self._save_state(replace(self.library_state, playlists=playlists)):
             self.queue.set_playlists(sorted(playlists))
-            self.dock.set_status(f"Đã lưu playlist “{name}” ({len(songs)} bài).", "success")
+            self.dock.set_status(tr("Đã lưu playlist “{name}” ({0} bài).").format(
+                len(songs), name=name), "success")
             return True
         return False
 
@@ -944,10 +982,11 @@ class MainWindow(QMainWindow):
         self.queue.replace_songs(found)
         missing = len(songs) - len(found)
         if missing:
-            self._show_error(f"Playlist “{name}”: {missing} bài không còn trong thư viện "
-                             "và đã được bỏ qua.")
+            self._show_error(tr("Playlist “{name}”: {missing} bài không còn trong thư viện "
+                             "và đã được bỏ qua.").format(name=name, missing=missing))
         else:
-            self.dock.set_status(f"Đã mở playlist “{name}” vào hàng chờ. Nhấn Tiếp để phát.",
+            self.dock.set_status(
+                tr("Đã mở playlist “{name}” vào hàng chờ. Nhấn Tiếp để phát.").format(name=name),
                                  "success")
         if not self.queue.isVisible():
             self.queue_toggle.setChecked(True)
@@ -959,7 +998,7 @@ class MainWindow(QMainWindow):
             return
         if self._save_state(replace(self.library_state, playlists=playlists)):
             self.queue.set_playlists(sorted(playlists))
-            self.dock.set_status(f"Đã xóa playlist “{name}”.")
+            self.dock.set_status(tr("Đã xóa playlist “{name}”.").format(name=name))
 
     # -------------------------------------------------------- focus lock
     def _locate_sky_window(self) -> WindowInfo | None:
@@ -990,8 +1029,8 @@ class MainWindow(QMainWindow):
         self.sky_window = None
         window = self._locate_sky_window()
         if window is None:
-            return "Không tìm thấy cửa sổ game. Hãy mở game rồi thử lại.", "danger"
-        return f"Đã tìm thấy: {window.title}", "info"
+            return tr("Không tìm thấy cửa sổ game. Hãy mở game rồi thử lại."), "danger"
+        return tr("Đã tìm thấy: {title}").format(title=window.title), "info"
 
     def _poll_focus_lock(self) -> None:
         if (not self.settings.focus_lock_enabled or not self.controller.busy
@@ -1002,11 +1041,11 @@ class MainWindow(QMainWindow):
         if not focused and not self.focus_paused:
             if self.controller.pause_for_focus():
                 self.focus_paused = True
-                self.dock.set_status("Game mất focus · bản nhạc đã tạm dừng", "warning")
+                self.dock.set_status(tr("Game mất focus · bản nhạc đã tạm dừng"), "warning")
         elif focused and self.focus_paused and self.settings.resume_on_sky_focus:
             if self.controller.resume_for_focus():
                 self.focus_paused = False
-                self.dock.set_status("Đã quay lại game · đang tiếp tục")
+                self.dock.set_status(tr("Đã quay lại game · đang tiếp tục"))
 
     def _set_focus_lock(self, enabled: bool) -> None:
         checkbox = self.settings_page.focus_lock_checkbox
@@ -1014,7 +1053,7 @@ class MainWindow(QMainWindow):
             blocker = QSignalBlocker(checkbox)
             checkbox.setChecked(self.settings.focus_lock_enabled)
             del blocker
-            self.dock.set_status("Hãy dừng bài trước khi đổi chế độ khóa vào game.", "warning")
+            self.dock.set_status(tr("Hãy dừng bài trước khi đổi chế độ khóa vào game."), "warning")
             return
         if not self._save_settings(focus_lock_enabled=enabled):
             blocker = QSignalBlocker(checkbox)
@@ -1043,7 +1082,7 @@ class MainWindow(QMainWindow):
 
     def _set_target_exe(self, exe: str | None) -> None:
         if self.controller.busy:
-            self.dock.set_status("Hãy dừng bài trước khi đổi cửa sổ mục tiêu.", "warning")
+            self.dock.set_status(tr("Hãy dừng bài trước khi đổi cửa sổ mục tiêu."), "warning")
             return
         if exe is not None and exe.casefold() == "sky.exe":
             exe = None
@@ -1052,21 +1091,22 @@ class MainWindow(QMainWindow):
                 self.focus_service.target_exe = exe
             self.sky_window = None
             self.settings_page.set_target(exe)
-            self.dock.set_status(f"Mục tiêu khóa focus: {exe or 'Sky'}.", "info")
+            self.dock.set_status(tr("Mục tiêu khóa focus: {0}.").format(exe or 'Sky'), "info")
 
     # ----------------------------------------------------------- settings
     def _apply_settings(self) -> None:
         page = self.settings_page
         widgets = (page.key_layout, page.countdown, page.always_on_top, page.reduced_motion,
                    page.minimize_to_tray, page.preview_sound, page.focus_lock_checkbox,
-                   page.resume_focus_checkbox, page.check_updates)
+                   page.resume_focus_checkbox, page.check_updates, page.language)
         blockers = [QSignalBlocker(widget) for widget in widgets]
         try:
             index = page.key_layout.findData(self.settings.keyboard_layout)
             page.key_layout.setCurrentIndex(max(0, index))
             page.custom_keys.setText("".join(self.settings.custom_layout_keys))
             page.countdown.setValue(self.settings.countdown_seconds)
-            page.countdown_value.setText(f"{self.settings.countdown_seconds} giây")
+            page.countdown_value.setText(tr("{countdown_seconds} giây").format(
+                countdown_seconds=self.settings.countdown_seconds))
             page.always_on_top.setChecked(self.settings.always_on_top)
             page.reduced_motion.setChecked(self.settings.reduced_motion)
             page.minimize_to_tray.setChecked(self.settings.minimize_to_tray)
@@ -1074,6 +1114,7 @@ class MainWindow(QMainWindow):
             page.focus_lock_checkbox.setChecked(self.settings.focus_lock_enabled)
             page.resume_focus_checkbox.setChecked(self.settings.resume_on_sky_focus)
             page.check_updates.setChecked(self.settings.check_updates)
+            page.language.setCurrentIndex(max(0, page.language.findData(self.settings.language)))
         finally:
             del blockers
         page.set_target(self.settings.focus_target_exe)
@@ -1099,11 +1140,12 @@ class MainWindow(QMainWindow):
                 self.settings_error = None
                 if backup is not None:
                     self.dock.set_status(
-                        f"Đã sao lưu cấu hình lỗi tại {backup.name} và lưu cấu hình mới.")
+                        tr("Đã sao lưu cấu hình lỗi tại {name} và lưu cấu hình mới.").format(
+                            name=backup.name))
             else:
                 self.settings_repository.save(updated)
         except RepositoryError as exc:
-            self._show_error(f"Không thể lưu cài đặt: {exc}")
+            self._show_error(tr("Không thể lưu cài đặt: {exc}").format(exc=exc))
             return False
         self.settings = updated
         return True
@@ -1117,7 +1159,7 @@ class MainWindow(QMainWindow):
     def _set_layout(self, value: str) -> None:
         if value == "custom" and not self.settings.custom_layout_keys:
             self._apply_settings()
-            self.dock.set_status("Nhập 15 phím vào ô Phím tùy chỉnh rồi nhấn Lưu bộ tùy chỉnh.",
+            self.dock.set_status(tr("Nhập 15 phím vào ô Phím tùy chỉnh rồi nhấn Lưu bộ tùy chỉnh."),
                                  "warning")
             return
         if self._save_or_restore(keyboard_layout=value):
@@ -1133,7 +1175,12 @@ class MainWindow(QMainWindow):
         if self._save_or_restore(custom_layout_keys=keys, keyboard_layout="custom"):
             self._apply_settings()
             self.refresh_library()
-            self.dock.set_status("Đã lưu và dùng bộ phím tùy chỉnh.", "success")
+            self.dock.set_status(tr("Đã lưu và dùng bộ phím tùy chỉnh."), "success")
+
+    def _set_language(self, code: str) -> None:
+        # Widgets are built once, so the new language is applied on the next start.
+        if code != self.settings.language and self._save_or_restore(language=code):
+            self.dock.set_status(tr("Đã đổi ngôn ngữ. Mở lại ứng dụng để áp dụng."), "info")
 
     def _set_countdown(self, value: int) -> None:
         if self._save_or_restore(countdown_seconds=value):
@@ -1166,7 +1213,7 @@ class MainWindow(QMainWindow):
                           hotkey_keys=values["slot_keys"], song_slots=values["song_slots"])
         if not self.hotkeys.start(updated):
             self.hotkeys_page.show_feedback(
-                "Không thể áp dụng; cấu hình và phím tắt đang dùng được giữ nguyên.", False)
+                tr("Không thể áp dụng; cấu hình và phím tắt đang dùng được giữ nguyên."), False)
             return
         try:
             if self.settings_error:
@@ -1176,12 +1223,13 @@ class MainWindow(QMainWindow):
                 self.settings_repository.save(updated)
         except RepositoryError as exc:
             restored = self.hotkeys.start(previous)
-            recovery = ("Đã khôi phục phím tắt cũ." if restored
-                        else "Không thể khôi phục listener cũ; hãy mở lại ứng dụng.")
-            self.hotkeys_page.show_feedback(f"Không thể lưu cấu hình: {exc}. {recovery}", False)
+            recovery = (tr("Đã khôi phục phím tắt cũ.") if restored
+                        else tr("Không thể khôi phục listener cũ; hãy mở lại ứng dụng."))
+            self.hotkeys_page.show_feedback(tr("Không thể lưu cấu hình: {exc}. {recovery}").format(
+                exc=exc, recovery=recovery), False)
             return
         self.settings = updated
-        self.hotkeys_page.show_feedback("Đã lưu và áp dụng global hotkeys.", True)
+        self.hotkeys_page.show_feedback(tr("Đã lưu và áp dụng global hotkeys."), True)
 
     @Slot(int)
     def _play_slot(self, index: int) -> None:
@@ -1197,19 +1245,24 @@ class MainWindow(QMainWindow):
         if len(matches) == 1:
             self.play_song(matches[0])
         elif len(matches) > 1:
-            self._show_error(f"Tên bài cũ bị trùng cho phím {index + 1}: {selected}. "
-                             "Hãy gán lại bài bằng đường dẫn đầy đủ.")
+            self._show_error(tr("Tên bài cũ bị trùng cho phím {0}: {selected}. "
+                             "Hãy gán lại bài bằng đường dẫn đầy đủ.").format(
+                                 index + 1, selected=selected))
         else:
-            self._show_error(f"Không tìm thấy bài đã gán cho phím {index + 1}: {selected}")
+            self._show_error(tr("Không tìm thấy bài đã gán cho phím {0}: {selected}").format(
+                index + 1, selected=selected))
 
     def _update_available(self, tag: str, url: str) -> None:
-        self.dock.set_status(f"Có bản mới {tag}. Mở Cài đặt → Hỗ trợ hoặc trang Releases để tải.",
+        self.dock.set_status(
+            tr("Có bản mới {tag}. Mở Cài đặt → Hỗ trợ hoặc trang Releases để tải.").format(tag=tag),
                              "info")
         self._latest_release_url = url
         if self.tray is not None:
-            self.tray.notify("Có bản mới", f"Sky Macro Player {tag} đã phát hành.")
+            self.tray.notify(tr("Có bản mới"), tr("Sky Macro Player {tag} đã phát hành.").format(
+                tag=tag))
         answer = QMessageBox.question(
-            self, "Có bản mới", f"Sky Macro Player {tag} đã phát hành. Mở trang tải về?")
+            self, tr("Có bản mới"),
+            tr("Sky Macro Player {tag} đã phát hành. Mở trang tải về?").format(tag=tag))
         if answer == QMessageBox.StandardButton.Yes:
             QDesktopServices.openUrl(QUrl(url))
 
@@ -1232,24 +1285,24 @@ class MainWindow(QMainWindow):
                 self.refresh_library()
 
     def open_command_palette(self) -> None:
-        commands = [
-            ("Phát / Tạm dừng", self.toggle_play),
-            ("Dừng", self.stop_playback),
-            ("Bài tiếp theo", self.play_next),
+        commands: list[tuple[str, Callable[[], object]]] = [
+            (tr("Phát / Tạm dừng"), self.toggle_play),
+            (tr("Dừng"), self.stop_playback),
+            (tr("Bài tiếp theo"), self.play_next),
             ("Mini player", self.toggle_mini),
-            ("Nhập sheet", self.choose_import_files),
-            ("Phát tất cả bài đang hiển thị",
+            (tr("Nhập sheet"), self.choose_import_files),
+            (tr("Phát tất cả bài đang hiển thị"),
              lambda: self.play_all(self.library_page.visible_songs())),
-            ("Trộn bài đang hiển thị",
+            (tr("Trộn bài đang hiển thị"),
              lambda: self.play_all(self.library_page.visible_songs(), True)),
-            ("Đổi chế độ lặp", self.queue.cycle_repeat),
-            ("Bật/tắt Xem trước", self.dock.preview_button.toggle),
-            ("Bật/tắt bàn phím", self.dock.keyboard_button.toggle),
-            ("Mở Thư viện", lambda: self.show_page(0)),
-            ("Mở Phím tắt", lambda: self.show_page(1)),
-            ("Mở Cài đặt", lambda: self.show_page(2)),
-            ("Xuất báo cáo chẩn đoán", self.export_diagnostics),
-            ("Hướng dẫn thiết lập", self.run_onboarding),
+            (tr("Đổi chế độ lặp"), self.queue.cycle_repeat),
+            (tr("Bật/tắt Xem trước"), self.dock.preview_button.toggle),
+            (tr("Bật/tắt bàn phím"), self.dock.keyboard_button.toggle),
+            (tr("Mở Thư viện"), lambda: self.show_page(0)),
+            (tr("Mở Phím tắt"), lambda: self.show_page(1)),
+            (tr("Mở Cài đặt"), lambda: self.show_page(2)),
+            (tr("Xuất báo cáo chẩn đoán"), self.export_diagnostics),
+            (tr("Hướng dẫn thiết lập"), self.run_onboarding),
         ]
         palette = CommandPalette(self.songs, commands, self)
         palette.song_chosen.connect(self.play_song)
@@ -1270,7 +1323,7 @@ class MainWindow(QMainWindow):
         if destination is None:
             default = Path.home() / f"SkyMacroPlayer-chan-doan-{time.strftime('%Y%m%d-%H%M')}.zip"
             chosen, _ = QFileDialog.getSaveFileName(
-                self, "Lưu báo cáo chẩn đoán", str(default), "Zip (*.zip)")
+                self, tr("Lưu báo cáo chẩn đoán"), str(default), "Zip (*.zip)")
             if not chosen:
                 return None
             destination = Path(chosen)
@@ -1280,9 +1333,10 @@ class MainWindow(QMainWindow):
                          log_dir=paths.user_data_dir() / "logs",
                          extra={"state": self.controller.state})
         except OSError as exc:
-            self._show_error(f"Không thể tạo báo cáo: {exc}")
+            self._show_error(tr("Không thể tạo báo cáo: {exc}").format(exc=exc))
             return None
-        self.dock.set_status(f"Đã lưu báo cáo chẩn đoán: {destination.name}", "success")
+        self.dock.set_status(tr("Đã lưu báo cáo chẩn đoán: {name}").format(
+            name=destination.name), "success")
         return destination
 
     # ------------------------------------------------------ mini and tray
@@ -1330,7 +1384,8 @@ class MainWindow(QMainWindow):
             self.hide()
             if not self._tray_hint_shown:
                 self._tray_hint_shown = True
-                self.tray.notify("Vẫn đang chạy", "Ứng dụng ở khay hệ thống. Chọn Thoát để tắt.")
+                self.tray.notify(
+                    tr("Vẫn đang chạy"), tr("Ứng dụng ở khay hệ thống. Chọn Thoát để tắt."))
             return
         self._closing = True
         self.pending_song = None
@@ -1339,7 +1394,7 @@ class MainWindow(QMainWindow):
         if self.controller.busy:
             self.close_pending = True
             self.stop_playback()
-            self.dock.set_status("Đang dừng an toàn trước khi đóng")
+            self.dock.set_status(tr("Đang dừng an toàn trước khi đóng"))
             event.ignore()
             return
         if self.mini.isVisible():

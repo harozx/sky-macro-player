@@ -9,16 +9,20 @@ from pathlib import Path
 from typing import Iterable, Mapping, Sequence
 
 from .domain import FavoriteEntry, SongSheet
+from .i18n import N_, tr
 from .repositories import (
-    FavoritesRepository, RepositoryError, SheetRepository, _read_json,
+    FavoritesRepository,
+    RepositoryError,
+    SheetRepository,
+    _read_json,
 )
 
 _LAYERED_KEY = re.compile(r"^(\d+)Key(\d+)$")
 MAX_IMPORT_BYTES = 5 * 1024 * 1024
 LAYER_POLICY_LABELS = {
-    None: "Chặn (mặc định)",
-    "merge": "Gộp mọi lớp về 15 phím",
-    "layer1": "Chỉ phát lớp 1",
+    None: N_("Chặn (mặc định)"),
+    "merge": N_("Gộp mọi lớp về 15 phím"),
+    "layer1": N_("Chỉ phát lớp 1"),
 }
 
 
@@ -51,10 +55,10 @@ class Song:
         if not self.note_count:
             return ""
         if self.density < 3:
-            return "Dễ"
+            return tr("Dễ")
         if self.density < 6:
-            return "Vừa"
-        return "Khó"
+            return tr("Vừa")
+        return tr("Khó")
 
 
 def is_layered(sheet: SongSheet) -> bool:
@@ -135,11 +139,12 @@ class Library:
             fingerprint = self._fingerprint(path)
         except OSError as exc:
             self._cache.pop(relative.casefold(), None)
-            raise RepositoryError(f"Không tìm thấy sheet '{relative}'.") from exc
+            raise RepositoryError(tr("Không tìm thấy sheet '{relative}'.").format(
+                relative=relative)) from exc
         cached = self._cache.get(relative.casefold())
         if cached is not None and cached[0] == fingerprint:
             if cached[1] is None:
-                raise RepositoryError(cached[2] or "Sheet không hợp lệ.")
+                raise RepositoryError(cached[2] or tr("Sheet không hợp lệ."))
             return cached[1]
         try:
             sheet = self.sheets.load(relative)
@@ -210,11 +215,12 @@ class Library:
         events = apply_layer_policy(sheet, policy)
         missing = unsupported_keys(events, supported_keys)
         if missing:
-            hint = (" Chọn cách xử lý lớp 2Key/3Key trong chi tiết bài."
+            hint = (tr(" Chọn cách xử lý lớp 2Key/3Key trong chi tiết bài.")
                     if is_layered(sheet) and policy is None else "")
-            raise RepositoryError(f"Sheet dùng phím chưa hỗ trợ: {', '.join(missing)}.{hint}")
+            raise RepositoryError(tr("Sheet dùng phím chưa hỗ trợ: {0}.{hint}").format(
+                ', '.join(missing), hint=hint))
         if not events:
-            raise RepositoryError("Sheet không có nốt nào để phát.")
+            raise RepositoryError(tr("Sheet không có nốt nào để phát."))
         moments = sorted({int(time) for time, _ in events})
         return events, moments, moments[-1] if moments else 0
 
@@ -224,16 +230,17 @@ class Library:
         name = source.name
         conflict = (self.root / name).exists()
         if source.suffix.lower() not in {".txt", ".json"}:
-            return ImportCandidate(source, name, error="Chỉ nhận file .txt hoặc .json.",
+            return ImportCandidate(source, name, error=tr("Chỉ nhận file .txt hoặc .json."),
                                    conflict=conflict)
         try:
             if source.stat().st_size > MAX_IMPORT_BYTES:
-                return ImportCandidate(source, name, error="File lớn hơn 5 MB.", conflict=conflict)
+                return ImportCandidate(source, name, error=tr("File lớn hơn 5 MB."),
+                                       conflict=conflict)
             sheet = SheetRepository._parse(_read_json(source), source_name=name)
         except (OSError, RepositoryError) as exc:
             return ImportCandidate(source, name, error=str(exc), conflict=conflict)
         if not sheet.notes:
-            return ImportCandidate(source, name, sheet.title, error="Sheet không có nốt nào.",
+            return ImportCandidate(source, name, sheet.title, error=tr("Sheet không có nốt nào."),
                                    conflict=conflict)
         return ImportCandidate(
             source, name, sheet.title, len(sheet.notes), int(sheet.notes[-1].time),
@@ -264,5 +271,6 @@ class Library:
                 return destination
             shutil.copy2(candidate.source, destination)
         except OSError as exc:
-            raise RepositoryError(f"Không thể chép '{candidate.source.name}': {exc}") from exc
+            raise RepositoryError(tr("Không thể chép '{name}': {exc}").format(
+                name=candidate.source.name, exc=exc)) from exc
         return destination

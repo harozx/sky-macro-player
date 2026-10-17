@@ -156,12 +156,14 @@ class PlaybackController(QObject):
         self._thread: QThread | None = None
         self._worker: PlaybackWorker | None = None
         self._stop, self._pause = threading.Event(), threading.Event()
-        self._result, self._failure = False, None
+        self._result = False
+        self._failure: str | None = None
         self._state_before_focus_pause = "playing"
         self._session_counter = self._active_session = 0
         self._playback_has_started = False
         self.input_guard: Callable[[], bool] | None = None
-        self.state, self.current_song = "idle", None
+        self.state = "idle"
+        self.current_song: Song | None = None
         self.layout_name, self.countdown = "old", 3
         self.key_map: dict[str, str] = dict(DEFAULT_KEY_MAP)
         self.loader: Callable[[Song], Prepared] = load_song_events

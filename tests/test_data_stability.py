@@ -3,15 +3,17 @@ from dataclasses import replace
 from pathlib import Path
 
 import pytest
-from PySide6.QtCore import QObject, Signal
 
 import macro_player.hotkeys as hotkeys_module
 from macro_player.domain import Settings
-from macro_player.repositories import (
-    FavoritesRepository, RepositoryError, SettingsRepository, SheetRepository,
-)
 from macro_player.hotkeys import GlobalHotkeyService, canonical_hotkey
 from macro_player.library import Song
+from macro_player.repositories import (
+    FavoritesRepository,
+    RepositoryError,
+    SettingsRepository,
+    SheetRepository,
+)
 from macro_player.ui.hotkeys_page import EditableHotkeysPage
 from macro_player.ui.main_window import MainWindow
 

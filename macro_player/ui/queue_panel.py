@@ -7,13 +7,22 @@ import random
 from PySide6.QtCore import Qt, Signal, Slot
 from PySide6.QtGui import QFont
 from PySide6.QtWidgets import (
-    QHBoxLayout, QLabel, QListWidget, QListWidgetItem, QMenu, QPushButton, QVBoxLayout, QWidget,
+    QHBoxLayout,
+    QLabel,
+    QListWidget,
+    QListWidgetItem,
+    QMenu,
+    QPushButton,
+    QVBoxLayout,
+    QWidget,
 )
 
+from ..i18n import N_, tr
 from ..library import Song
 from .theme import Tokens
 
-EMPTY_HINT = "Hàng chờ đang trống. Chọn một bài trong thư viện và nhấn “Thêm hàng chờ”."
+EMPTY_HINT = N_(
+    "Hàng chờ đang trống. Chọn một bài trong thư viện và nhấn “Thêm hàng chờ”.")
 
 
 class QueuePanel(QWidget):
@@ -22,7 +31,8 @@ class QueuePanel(QWidget):
     load_playlist_requested = Signal(str)
     delete_playlist_requested = Signal(str)
 
-    REPEAT_LABELS = {"off": "Lặp: Tắt", "all": "Lặp: Hàng chờ", "one": "Lặp: Một bài"}
+    REPEAT_LABELS = {"off": N_("Lặp: Tắt"), "all": N_("Lặp: Hàng chờ"),
+                     "one": N_("Lặp: Một bài")}
 
     def __init__(self) -> None:
         super().__init__()
@@ -31,37 +41,38 @@ class QueuePanel(QWidget):
         self.setMaximumWidth(340)
         layout = QVBoxLayout(self)
         layout.setContentsMargins(16, 22, 16, 14)
-        eyebrow = QLabel("PHÁT TIẾP")
+        eyebrow = QLabel(tr("PHÁT TIẾP"))
         eyebrow.setObjectName("eyebrow")
-        title = QLabel("Hàng chờ")
+        title = QLabel(tr("Hàng chờ"))
         title.setFont(QFont(Tokens.DISPLAY, 19, QFont.Weight.DemiBold))
-        self.hint = QLabel(EMPTY_HINT)
+        self.hint = QLabel(tr(EMPTY_HINT))
         self.hint.setObjectName("muted")
         self.hint.setWordWrap(True)
         self.list = QListWidget()
-        self.list.setAccessibleName("Hàng chờ phát nhạc")
+        self.list.setAccessibleName(tr("Hàng chờ phát nhạc"))
         self.list.setDragDropMode(QListWidget.DragDropMode.InternalMove)
         self.repeat_mode = "off"
         self.repeat_button = QPushButton()
-        self.repeat_button.setAccessibleName("Đổi chế độ lặp")
+        self.repeat_button.setAccessibleName(tr("Đổi chế độ lặp"))
         self.repeat_button.setToolTip(
-            "Tắt → Lặp hàng chờ → Lặp một bài. Dừng luôn kết thúc việc lặp.")
+            tr("Tắt → Lặp hàng chờ → Lặp một bài. Dừng luôn kết thúc việc lặp."))
         self._sync_repeat()
         tools = QHBoxLayout()
-        self.shuffle_button = QPushButton("Trộn")
-        self.shuffle_button.setToolTip("Xáo trộn thứ tự các bài đang chờ.")
-        self.clear_button = QPushButton("Xóa hết")
+        self.shuffle_button = QPushButton(tr("Trộn"))
+        self.shuffle_button.setToolTip(tr("Xáo trộn thứ tự các bài đang chờ."))
+        self.clear_button = QPushButton(tr("Xóa hết"))
         self.playlist_button = QPushButton("Playlist")
         self.playlist_menu = QMenu(self)
         self.playlist_button.setMenu(self.playlist_menu)
         for button in (self.shuffle_button, self.clear_button, self.playlist_button):
             button.setProperty("compact", True)
             tools.addWidget(button)
-        self.undo_button = QPushButton("Hoàn tác")
-        self.undo_button.setAccessibleName("Hoàn tác thay đổi hàng chờ")
+        self.undo_button = QPushButton(tr("Hoàn tác"))
+        self.undo_button.setAccessibleName(tr("Hoàn tác thay đổi hàng chờ"))
         self.undo_button.hide()
-        remove = QPushButton("Bỏ bài đã chọn")
+        remove = QPushButton(tr("Bỏ bài đã chọn"))
         remove.setProperty("danger", True)
+        widget: QWidget
         for widget in (eyebrow, title, self.hint, self.repeat_button):
             layout.addWidget(widget)
         layout.addLayout(tools)
@@ -83,7 +94,7 @@ class QueuePanel(QWidget):
 
     # -- repeat ----------------------------------------------------------
     def _sync_repeat(self) -> None:
-        self.repeat_button.setText(self.REPEAT_LABELS[self.repeat_mode])
+        self.repeat_button.setText(tr(self.REPEAT_LABELS[self.repeat_mode]))
 
     @Slot()
     def cycle_repeat(self) -> None:
@@ -92,7 +103,7 @@ class QueuePanel(QWidget):
 
     def set_repeat_mode(self, mode: str) -> None:
         if mode not in self.REPEAT_LABELS:
-            raise ValueError(f"Chế độ lặp không hợp lệ: {mode}")
+            raise ValueError(tr("Chế độ lặp không hợp lệ: {mode}").format(mode=mode))
         self.repeat_mode = mode
         self._sync_repeat()
 
@@ -101,18 +112,18 @@ class QueuePanel(QWidget):
         self._playlist_names = list(names)
         menu = self.playlist_menu
         menu.clear()
-        save = menu.addAction("Lưu hàng chờ thành playlist…")
+        save = menu.addAction(tr("Lưu hàng chờ thành playlist…"))
         save.triggered.connect(self.save_playlist_requested)
         save.setEnabled(self.list.count() > 0)
         menu.addSeparator()
         if not names:
-            empty = menu.addAction("Chưa có playlist")
+            empty = menu.addAction(tr("Chưa có playlist"))
             empty.setEnabled(False)
             return
         for name in names:
-            action = menu.addAction(f"Mở “{name}”")
+            action = menu.addAction(tr("Mở “{name}”").format(name=name))
             action.triggered.connect(lambda _=False, n=name: self.load_playlist_requested.emit(n))
-        delete_menu = menu.addMenu("Xóa playlist")
+        delete_menu = menu.addMenu(tr("Xóa playlist"))
         for name in names:
             action = delete_menu.addAction(name)
             action.triggered.connect(lambda _=False, n=name: self.delete_playlist_requested.emit(n))
@@ -201,5 +212,6 @@ class QueuePanel(QWidget):
 
     def _sync_hint(self) -> None:
         count = self.list.count()
-        self.hint.setText(f"{count} bài đang chờ" if count else EMPTY_HINT)
+        self.hint.setText(
+            tr("{count} bài đang chờ").format(count=count) if count else tr(EMPTY_HINT))
         self.set_playlists(getattr(self, "_playlist_names", []))

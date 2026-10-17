@@ -7,20 +7,36 @@ from typing import Callable
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QKeySequence, QShortcut
 from PySide6.QtWidgets import (
-    QAbstractItemView, QCheckBox, QComboBox, QDialog, QDialogButtonBox, QHBoxLayout,
-    QHeaderView, QLabel, QLineEdit, QListWidget, QListWidgetItem, QPushButton,
-    QStackedWidget, QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget,
+    QAbstractItemView,
+    QCheckBox,
+    QComboBox,
+    QDialog,
+    QDialogButtonBox,
+    QHBoxLayout,
+    QHeaderView,
+    QLabel,
+    QLineEdit,
+    QListWidget,
+    QListWidgetItem,
+    QPushButton,
+    QStackedWidget,
+    QTableWidget,
+    QTableWidgetItem,
+    QVBoxLayout,
+    QWidget,
 )
 
 from ..engine import MacroPlayer
+from ..i18n import N_, tr
 from ..library import ImportCandidate, Song
 from ..search import matches
 from ..window_focus import WindowInfo, executable_name
 from .theme import STYLE
 from .widgets import format_duration
 
-CONFLICT_ACTIONS = (("Đổi tên bài mới", "rename"), ("Ghi đè bài cũ", "overwrite"),
-                    ("Bỏ qua bài trùng", "skip"))
+CONFLICT_ACTIONS = ((N_("Đổi tên bài mới"), "rename"),
+                    (N_("Ghi đè bài cũ"), "overwrite"),
+                    (N_("Bỏ qua bài trùng"), "skip"))
 
 
 class ImportDialog(QDialog):
@@ -28,18 +44,19 @@ class ImportDialog(QDialog):
 
     def __init__(self, candidates: list[ImportCandidate], parent: QWidget | None = None) -> None:
         super().__init__(parent)
-        self.setWindowTitle("Nhập sheet")
+        self.setWindowTitle(tr("Nhập sheet"))
         self.setStyleSheet(STYLE)
         self.resize(720, 420)
         self.candidates = candidates
         layout = QVBoxLayout(self)
         valid = [c for c in candidates if c.valid]
-        heading = QLabel(f"{len(valid)}/{len(candidates)} file hợp lệ sẽ được chép vào thư viện. "
-                         "File gốc không bị thay đổi.")
+        heading = QLabel(tr("{0}/{1} file hợp lệ sẽ được chép vào thư viện. "
+                         "File gốc không bị thay đổi.").format(len(valid), len(candidates)))
         heading.setWordWrap(True)
         layout.addWidget(heading)
         self.table = QTableWidget(len(candidates), 4)
-        self.table.setHorizontalHeaderLabels(["File", "Kết quả kiểm tra", "Nốt", "Thời lượng"])
+        self.table.setHorizontalHeaderLabels(
+            ["File", tr("Kết quả kiểm tra"), tr("Nốt"), tr("Thời lượng")])
         self.table.verticalHeader().setVisible(False)
         self.table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         self.table.setSelectionMode(QAbstractItemView.SelectionMode.NoSelection)
@@ -48,13 +65,13 @@ class ImportDialog(QDialog):
         header.setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
         for row, candidate in enumerate(candidates):
             if not candidate.valid:
-                status = f"Lỗi: {candidate.error}"
+                status = tr("Lỗi: {error}").format(error=candidate.error)
             elif candidate.conflict:
-                status = "Hợp lệ · trùng tên với bài đã có"
+                status = tr("Hợp lệ · trùng tên với bài đã có")
             elif candidate.layered:
-                status = "Hợp lệ · có lớp 2Key/3Key (chọn cách xử lý sau khi nhập)"
+                status = tr("Hợp lệ · có lớp 2Key/3Key (chọn cách xử lý sau khi nhập)")
             else:
-                status = "Hợp lệ"
+                status = tr("Hợp lệ")
             cells = (candidate.source.name, status,
                      str(candidate.note_count) if candidate.valid else "",
                      format_duration(candidate.duration_ms) if candidate.valid else "")
@@ -64,21 +81,21 @@ class ImportDialog(QDialog):
                 self.table.setItem(row, column, item)
         layout.addWidget(self.table, 1)
         conflict_row = QHBoxLayout()
-        conflict_row.addWidget(QLabel("Nếu trùng tên:"))
+        conflict_row.addWidget(QLabel(tr("Nếu trùng tên:")))
         self.conflict = QComboBox()
-        self.conflict.setAccessibleName("Cách xử lý file trùng tên")
+        self.conflict.setAccessibleName(tr("Cách xử lý file trùng tên"))
         for label, value in CONFLICT_ACTIONS:
-            self.conflict.addItem(label, value)
+            self.conflict.addItem(tr(label), value)
         conflict_row.addWidget(self.conflict)
         conflict_row.addStretch(1)
         self.conflict.setEnabled(any(c.conflict and c.valid for c in candidates))
         layout.addLayout(conflict_row)
         buttons = QDialogButtonBox()
-        self.import_button = buttons.addButton(f"Nhập {len(valid)} bài",
+        self.import_button = buttons.addButton(tr("Nhập {0} bài").format(len(valid)),
                                                QDialogButtonBox.ButtonRole.AcceptRole)
         self.import_button.setProperty("primary", True)
         self.import_button.setEnabled(bool(valid))
-        buttons.addButton("Hủy", QDialogButtonBox.ButtonRole.RejectRole)
+        buttons.addButton(tr("Hủy"), QDialogButtonBox.ButtonRole.RejectRole)
         buttons.accepted.connect(self.accept)
         buttons.rejected.connect(self.reject)
         layout.addWidget(buttons)
@@ -95,7 +112,7 @@ class OnboardingWizard(QDialog):
                  next_key: str, test_window: Callable[[], str],
                  parent: QWidget | None = None) -> None:
         super().__init__(parent)
-        self.setWindowTitle("Thiết lập Sky Macro Player")
+        self.setWindowTitle(tr("Thiết lập Sky Macro Player"))
         self.setStyleSheet(STYLE)
         self.resize(560, 360)
         root = QVBoxLayout(self)
@@ -107,17 +124,18 @@ class OnboardingWizard(QDialog):
 
         page = QWidget()
         layout = QVBoxLayout(page)
-        title = QLabel("Bộ phím trong game")
+        title = QLabel(tr("Bộ phím trong game"))
         title.setObjectName("pageTitle")
-        text = QLabel("Trong Sky, mở Cài đặt → Điều khiển để xem đàn đang dùng bộ phím nào. "
-                      "Chọn đúng bộ phím để các nốt rơi vào đúng phím đàn.")
+        text = QLabel(tr("Trong Sky, mở Cài đặt → Điều khiển để xem đàn đang dùng bộ phím nào. "
+                      "Chọn đúng bộ phím để các nốt rơi vào đúng phím đàn."))
         text.setWordWrap(True)
         text.setObjectName("muted")
         self.layout_combo = QComboBox()
-        self.layout_combo.setAccessibleName("Bộ phím trong game")
+        self.layout_combo.setAccessibleName(tr("Bộ phím trong game"))
         for key, detail in MacroPlayer.KEY_LAYOUTS.items():
-            self.layout_combo.addItem(detail["name"], key)
+            self.layout_combo.addItem(tr(detail["name"]), key)
         self.layout_combo.setCurrentIndex(max(0, self.layout_combo.findData(layout_name)))
+        widget: QWidget
         for widget in (title, text, self.layout_combo):
             layout.addWidget(widget)
         layout.addStretch(1)
@@ -125,15 +143,15 @@ class OnboardingWizard(QDialog):
 
         page = QWidget()
         layout = QVBoxLayout(page)
-        title = QLabel("Giữ phím trong game")
+        title = QLabel(tr("Giữ phím trong game"))
         title.setObjectName("pageTitle")
-        text = QLabel("Nên bật: nếu bạn chuyển sang cửa sổ khác, bản nhạc tự tạm dừng và không "
-                      "gõ nhầm phím vào ứng dụng đó. Mở Sky rồi nhấn kiểm tra.")
+        text = QLabel(tr("Nên bật: nếu bạn chuyển sang cửa sổ khác, bản nhạc tự tạm dừng và không "
+                      "gõ nhầm phím vào ứng dụng đó. Mở Sky rồi nhấn kiểm tra."))
         text.setWordWrap(True)
         text.setObjectName("muted")
-        self.focus_lock = QCheckBox("Bật chế độ khóa vào cửa sổ game")
+        self.focus_lock = QCheckBox(tr("Bật chế độ khóa vào cửa sổ game"))
         self.focus_lock.setChecked(focus_lock)
-        check = QPushButton("Kiểm tra cửa sổ Sky")
+        check = QPushButton(tr("Kiểm tra cửa sổ Sky"))
         check.setProperty("outline", True)
         self.check_result = QLabel("")
         self.check_result.setWordWrap(True)
@@ -145,15 +163,16 @@ class OnboardingWizard(QDialog):
 
         page = QWidget()
         layout = QVBoxLayout(page)
-        title = QLabel("Những phím cần nhớ")
+        title = QLabel(tr("Những phím cần nhớ"))
         title.setObjectName("pageTitle")
         text = QLabel(
-            f"• Dừng khẩn cấp: {stop_key.upper()}\n"
-            f"• Tạm dừng / tiếp tục: {pause_key.upper()}\n"
-            f"• Bài tiếp theo: {next_key.upper()}\n\n"
+            tr("• Dừng khẩn cấp: {0}\n"
+            "• Tạm dừng / tiếp tục: {1}\n"
+            "• Bài tiếp theo: {2}\n\n"
             "Sau khi nhấn Phát, bạn có vài giây đếm ngược để click vào game. "
             "Muốn nghe thử trước? Bật “Xem trước” ở thanh phát: ứng dụng chỉ chơi trên bàn "
-            "phím ảo, không gửi phím ra ngoài. Có thể đổi phím tắt ở trang Phím tắt.")
+            "phím ảo, không gửi phím ra ngoài. Có thể đổi phím tắt ở trang Phím tắt.").format(
+                stop_key.upper(), pause_key.upper(), next_key.upper()))
         text.setWordWrap(True)
         for widget in (title, text):
             layout.addWidget(widget)
@@ -161,9 +180,9 @@ class OnboardingWizard(QDialog):
         self.pages.addWidget(page)
 
         buttons = QHBoxLayout()
-        self.skip_button = QPushButton("Bỏ qua")
-        self.back_button = QPushButton("Quay lại")
-        self.next_button = QPushButton("Tiếp")
+        self.skip_button = QPushButton(tr("Bỏ qua"))
+        self.back_button = QPushButton(tr("Quay lại"))
+        self.next_button = QPushButton(tr("Tiếp"))
         self.next_button.setProperty("primary", True)
         buttons.addWidget(self.skip_button)
         buttons.addStretch(1)
@@ -178,9 +197,9 @@ class OnboardingWizard(QDialog):
     def _go(self, index: int) -> None:
         index = max(0, min(self.pages.count() - 1, index))
         self.pages.setCurrentIndex(index)
-        self.step_label.setText(f"BƯỚC {index + 1}/{self.pages.count()}")
+        self.step_label.setText(tr("BƯỚC {0}/{1}").format(index + 1, self.pages.count()))
         self.back_button.setEnabled(index > 0)
-        self.next_button.setText("Hoàn tất" if index == self.pages.count() - 1 else "Tiếp")
+        self.next_button.setText(tr("Hoàn tất") if index == self.pages.count() - 1 else tr("Tiếp"))
 
     def _next(self) -> None:
         if self.pages.currentIndex() == self.pages.count() - 1:
@@ -198,19 +217,19 @@ class CommandPalette(QDialog):
 
     song_chosen = Signal(object)
 
-    def __init__(self, songs: list[Song], commands: list[tuple[str, Callable[[], None]]],
+    def __init__(self, songs: list[Song], commands: list[tuple[str, Callable[[], object]]],
                  parent: QWidget | None = None) -> None:
         super().__init__(parent)
-        self.setWindowTitle("Bảng lệnh")
+        self.setWindowTitle(tr("Bảng lệnh"))
         self.setStyleSheet(STYLE)
         self.resize(560, 420)
         self.songs, self.commands = songs, commands
         layout = QVBoxLayout(self)
         self.input = QLineEdit()
-        self.input.setPlaceholderText("Gõ tên bài hoặc lệnh… (Enter để chạy, Esc để đóng)")
-        self.input.setAccessibleName("Tìm bài hoặc lệnh")
+        self.input.setPlaceholderText(tr("Gõ tên bài hoặc lệnh… (Enter để chạy, Esc để đóng)"))
+        self.input.setAccessibleName(tr("Tìm bài hoặc lệnh"))
         self.list = QListWidget()
-        self.list.setAccessibleName("Kết quả")
+        self.list.setAccessibleName(tr("Kết quả"))
         layout.addWidget(self.input)
         layout.addWidget(self.list, 1)
         self.input.textChanged.connect(self._refresh)
@@ -227,7 +246,7 @@ class CommandPalette(QDialog):
         self.list.clear()
         for label, callback in self.commands:
             if matches(query, label):
-                item = QListWidgetItem(f"Lệnh · {label}")
+                item = QListWidgetItem(tr("Lệnh · {label}").format(label=label))
                 item.setData(Qt.ItemDataRole.UserRole, ("command", callback))
                 self.list.addItem(item)
         shown = 0
@@ -235,8 +254,9 @@ class CommandPalette(QDialog):
             if shown >= 50:
                 break
             if query and matches(query, song.title, song.path.stem):
-                suffix = "" if song.playable else "  ·  Không hỗ trợ"
-                item = QListWidgetItem(f"Phát · {song.title}{suffix}")
+                suffix = "" if song.playable else tr("  ·  Không hỗ trợ")
+                item = QListWidgetItem(tr("Phát · {title}{suffix}").format(
+                    title=song.title, suffix=suffix))
                 item.setData(Qt.ItemDataRole.UserRole, ("song", song))
                 self.list.addItem(item)
                 shown += 1
@@ -264,27 +284,27 @@ class WindowPickerDialog(QDialog):
 
     def __init__(self, windows: list[WindowInfo], parent: QWidget | None = None) -> None:
         super().__init__(parent)
-        self.setWindowTitle("Chọn cửa sổ game")
+        self.setWindowTitle(tr("Chọn cửa sổ game"))
         self.setStyleSheet(STYLE)
         self.resize(560, 400)
         layout = QVBoxLayout(self)
-        text = QLabel("Mở game trước, rồi chọn cửa sổ của nó. Ứng dụng sẽ nhận diện game "
-                      "theo tên file chạy (.exe) mỗi lần phát.")
+        text = QLabel(tr("Mở game trước, rồi chọn cửa sổ của nó. Ứng dụng sẽ nhận diện game "
+                      "theo tên file chạy (.exe) mỗi lần phát."))
         text.setWordWrap(True)
         text.setObjectName("muted")
         self.list = QListWidget()
-        self.list.setAccessibleName("Các cửa sổ đang mở")
+        self.list.setAccessibleName(tr("Các cửa sổ đang mở"))
         for window in windows:
             name = executable_name(window.process_path)
             item = QListWidgetItem(f"{window.title}  ·  {name}")
             item.setData(Qt.ItemDataRole.UserRole, name)
             self.list.addItem(item)
         if not windows:
-            self.list.addItem("Không tìm thấy cửa sổ nào có thể chọn.")
+            self.list.addItem(tr("Không tìm thấy cửa sổ nào có thể chọn."))
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok
                                    | QDialogButtonBox.StandardButton.Cancel)
-        buttons.button(QDialogButtonBox.StandardButton.Ok).setText("Chọn")
-        buttons.button(QDialogButtonBox.StandardButton.Cancel).setText("Hủy")
+        buttons.button(QDialogButtonBox.StandardButton.Ok).setText(tr("Chọn"))
+        buttons.button(QDialogButtonBox.StandardButton.Cancel).setText(tr("Hủy"))
         buttons.accepted.connect(self.accept)
         buttons.rejected.connect(self.reject)
         self.list.itemDoubleClicked.connect(lambda _: self.accept())

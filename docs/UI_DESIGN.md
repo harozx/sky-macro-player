@@ -70,6 +70,10 @@ control to reopen it.
 - **Library header** hides its eyebrow and summary under 470 px height so the
   list keeps room at 200% scaling (960×540 logical on a 1080p screen). The
   window minimum is 760×520.
+- **Language**: Vietnamese is the default and the source text. Settings →
+  Giao diện offers English; it applies after a restart. Every visible string
+  goes through `macro_player.i18n.tr` (constants use `N_`), and
+  `tests/test_i18n.py` fails when a string lacks an English entry.
 - **Dialogs** (import preview, first-run guide, command palette, window picker)
   reuse the same tokens; primary actions use Sunset Apricot.
 

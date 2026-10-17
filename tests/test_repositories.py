@@ -4,6 +4,7 @@ from pathlib import Path
 import pytest
 
 from macro_player.domain import CURRENT_SETTINGS_VERSION, FavoriteEntry, Settings
+from macro_player.paths import migrate_legacy_user_data
 from macro_player.repositories import (
     FavoritesRepository,
     JsonDataError,
@@ -12,7 +13,6 @@ from macro_player.repositories import (
     UnsafePathError,
     ValidationError,
 )
-from macro_player.paths import migrate_legacy_user_data
 
 
 def test_settings_defaults_when_file_is_missing(tmp_path: Path) -> None:

@@ -1,12 +1,13 @@
 """Safe, deterministic keyboard playback for Sky music sheets."""
 import math
 import numbers
-import threading
 import time
 from collections.abc import Mapping
-from typing import Callable, Iterable, Sequence
+from typing import Any, Callable, Iterable, Sequence, SupportsFloat
 
 from pynput import keyboard
+
+from .i18n import N_, tr
 
 MIN_SPEED, MAX_SPEED = .25, 2.
 
@@ -16,12 +17,12 @@ class SheetValidationError(ValueError):
 
 
 class MacroPlayer:
-    KEY_LAYOUTS = {
-        "old": {"name": "Bộ cũ (yuiophjkl;nm,./)", "json_map": {
+    KEY_LAYOUTS: dict[str, dict[str, Any]] = {
+        "old": {"name": N_("Bộ cũ (yuiophjkl;nm,./)"), "json_map": {
             "1Key0": "y", "1Key1": "u", "1Key2": "i", "1Key3": "o", "1Key4": "p",
             "1Key5": "h", "1Key6": "j", "1Key7": "k", "1Key8": "l", "1Key9": ";",
             "1Key10": "n", "1Key11": "m", "1Key12": ",", "1Key13": ".", "1Key14": "/"}},
-        "new": {"name": "Bộ mới (asdfghjqwertyui)", "json_map": {
+        "new": {"name": N_("Bộ mới (asdfghjqwertyui)"), "json_map": {
             "1Key0": "a", "1Key1": "s", "1Key2": "d", "1Key3": "f", "1Key4": "g",
             "1Key5": "h", "1Key6": "j", "1Key7": "q", "1Key8": "w", "1Key9": "e",
             "1Key10": "r", "1Key11": "t", "1Key12": "y", "1Key13": "u", "1Key14": "i"}},
@@ -32,7 +33,7 @@ class MacroPlayer:
                  input_guard: Callable[[], bool] | None = None,
                  progress_callback: Callable[[float], None] | None = None,
                  key_callback: Callable[[tuple[str, ...]], None] | None = None,
-                 speed: float = 1.):
+                 speed: SupportsFloat = 1.):
         self.controller = controller if controller is not None else keyboard.Controller()
         self._clock = clock or time.monotonic
         self._sleep = sleep or time.sleep
@@ -50,9 +51,9 @@ class MacroPlayer:
         """Build a ``1Key0..1Key14`` map from 15 distinct single keys."""
         checked = [str(key).strip().casefold() for key in keys]
         if len(checked) != 15 or any(len(key) != 1 or key.isspace() for key in checked):
-            raise ValueError("Bộ phím tùy chỉnh cần đúng 15 phím, mỗi ô một ký tự.")
+            raise ValueError(tr("Bộ phím tùy chỉnh cần đúng 15 phím, mỗi ô một ký tự."))
         if len(set(checked)) != 15:
-            raise ValueError("Bộ phím tùy chỉnh có phím bị trùng.")
+            raise ValueError(tr("Bộ phím tùy chỉnh có phím bị trùng."))
         return {f"1Key{index}": key for index, key in enumerate(checked)}
 
     def set_custom_layout(self, keys: Sequence[str]) -> None:
@@ -70,14 +71,15 @@ class MacroPlayer:
 
     def set_key_layout(self, layout_name):
         if layout_name not in self.KEY_LAYOUTS:
-            raise ValueError(f"Không tìm thấy bộ phím '{layout_name}'.")
+            raise ValueError(tr("Không tìm thấy bộ phím '{layout_name}'.").format(
+                layout_name=layout_name))
         self.current_layout = layout_name
         self.json_key_map = self.KEY_LAYOUTS[layout_name]["json_map"]
 
     def get_layout_name(self):
         if self.current_layout == "custom":
-            return "Bộ tùy chỉnh"
-        return self.KEY_LAYOUTS[self.current_layout]["name"]
+            return tr("Bộ tùy chỉnh")
+        return tr(self.KEY_LAYOUTS[self.current_layout]["name"])
 
     def _string_to_key(self, key_str):
         return key_str
@@ -180,29 +182,33 @@ class MacroPlayer:
         root = song_data
         if isinstance(root, list):
             if not root:
-                raise SheetValidationError("Sheet rỗng; không tìm thấy 'songNotes'.")
+                raise SheetValidationError(tr("Sheet rỗng; không tìm thấy 'songNotes'."))
             root = root[0]
         if not isinstance(root, Mapping):
-            raise SheetValidationError("Sheet phải là object hoặc danh sách chứa object.")
+            raise SheetValidationError(tr("Sheet phải là object hoặc danh sách chứa object."))
         notes = root.get("songNotes")
         if not isinstance(notes, list):
-            raise SheetValidationError("Trường 'songNotes' phải là một danh sách.")
+            raise SheetValidationError(tr("Trường 'songNotes' phải là một danh sách."))
         result = []
         for index, note in enumerate(notes, 1):
             if not isinstance(note, Mapping):
-                raise SheetValidationError(f"Nốt #{index} phải là object.")
+                raise SheetValidationError(tr("Nốt #{index} phải là object.").format(index=index))
             stamp, code = note.get("time"), note.get("key")
             if isinstance(stamp, bool) or not isinstance(stamp, numbers.Real):
-                raise SheetValidationError(f"Nốt #{index} có 'time' không hợp lệ.")
+                raise SheetValidationError(tr("Nốt #{index} có 'time' không hợp lệ.").format(
+                    index=index))
             stamp = float(stamp)
             if not math.isfinite(stamp) or stamp < 0:
-                raise SheetValidationError(f"Nốt #{index} có 'time' âm hoặc không hữu hạn.")
+                raise SheetValidationError(
+                    tr("Nốt #{index} có 'time' âm hoặc không hữu hạn.").format(index=index))
             if not isinstance(code, str) or not code:
-                raise SheetValidationError(f"Nốt #{index} có 'key' không hợp lệ.")
+                raise SheetValidationError(tr("Nốt #{index} có 'key' không hợp lệ.").format(
+                    index=index))
             if code not in self.json_key_map:
                 raise SheetValidationError(
-                    f"Nốt #{index} dùng key chưa hỗ trợ '{code}'. "
-                    "Sheet 2Key/3Key cần mapping rõ ràng trước khi phát.")
+                    tr("Nốt #{index} dùng key chưa hỗ trợ '{code}'. "
+                    "Sheet 2Key/3Key cần mapping rõ ràng trước khi phát.").format(
+                        index=index, code=code))
             result.append((stamp, code))
         return sorted(result, key=lambda item: item[0])
 
@@ -231,8 +237,9 @@ class MacroPlayer:
             for code in codes:
                 if code not in self.json_key_map:
                     raise SheetValidationError(
-                        f"Nốt #{index} dùng key chưa hỗ trợ '{code}'. "
-                        "Sheet 2Key/3Key cần mapping rõ ràng trước khi phát.")
+                        tr("Nốt #{index} dùng key chưa hỗ trợ '{code}'. "
+                        "Sheet 2Key/3Key cần mapping rõ ràng trước khi phát.").format(
+                            index=index, code=code))
                 notes.append((float(stamp), code))
         return self._play_grouped(self._grouped(notes), stop_event, pause_event,
                                   countdown_sec, start_ms, end_ms)
@@ -242,9 +249,9 @@ class MacroPlayer:
         try:
             countdown = float(countdown_sec)
         except (TypeError, ValueError) as exc:
-            raise ValueError("countdown_sec phải là một số không âm.") from exc
+            raise ValueError(tr("countdown_sec phải là một số không âm.")) from exc
         if not math.isfinite(countdown) or countdown < 0:
-            raise ValueError("countdown_sec phải là một số không âm.")
+            raise ValueError(tr("countdown_sec phải là một số không âm."))
         start_ms = max(0., float(start_ms))
         done, _ = self._wait_until(self._clock() + countdown, stop_event, pause_event)
         if not done:

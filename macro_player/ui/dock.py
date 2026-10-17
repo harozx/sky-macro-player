@@ -2,12 +2,19 @@
 
 from __future__ import annotations
 
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import Signal
 from PySide6.QtGui import QFont
 from PySide6.QtWidgets import (
-    QComboBox, QFrame, QHBoxLayout, QLabel, QPushButton, QSizePolicy, QVBoxLayout,
+    QComboBox,
+    QFrame,
+    QHBoxLayout,
+    QLabel,
+    QPushButton,
+    QSizePolicy,
+    QVBoxLayout,
 )
 
+from ..i18n import tr
 from ..library import Song
 from .mini import STATE_LABELS, play_label
 from .theme import Tokens
@@ -30,13 +37,13 @@ class PlaybackDock(QFrame):
         row = QHBoxLayout(self)
         row.setContentsMargins(22, 12, 18, 12)
         now = QVBoxLayout()
-        eyebrow = QLabel("ĐANG PHÁT")
+        eyebrow = QLabel(tr("ĐANG PHÁT"))
         eyebrow.setObjectName("eyebrow")
-        self.title = QLabel("Chọn một bài để bắt đầu")
+        self.title = QLabel(tr("Chọn một bài để bắt đầu"))
         self.title.setFont(QFont(Tokens.DISPLAY, 16, QFont.Weight.DemiBold))
         self.title.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred)
         self.title.setMinimumWidth(140)
-        self.status = QLabel("Sẵn sàng")
+        self.status = QLabel(tr("Sẵn sàng"))
         self.status.setObjectName("muted")
         self.status.setWordWrap(True)
         self.status.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred)
@@ -50,26 +57,27 @@ class PlaybackDock(QFrame):
         center.addWidget(self.runway)
         tools = QHBoxLayout()
         tools.setSpacing(4)
-        speed_label = QLabel("Tốc độ")
+        speed_label = QLabel(tr("Tốc độ"))
         speed_label.setObjectName("muted")
         self.speed = QComboBox()
-        self.speed.setAccessibleName("Tốc độ phát")
+        self.speed.setAccessibleName(tr("Tốc độ phát"))
         for value in SPEEDS:
             self.speed.addItem(f"{value:.1f}×", value)
         self.speed.setCurrentIndex(SPEEDS.index(1.0))
         self.a_button, self.b_button = QPushButton("A"), QPushButton("B")
-        self.clear_loop_button = QPushButton("Bỏ A–B")
-        self.a_button.setToolTip("Đặt điểm A của đoạn lặp tại vị trí hiện tại")
-        self.b_button.setToolTip("Đặt điểm B; khi có cả A và B, bài lặp đoạn A–B cho tới khi Dừng")
-        self.a_button.setAccessibleName("Đặt điểm A")
-        self.b_button.setAccessibleName("Đặt điểm B")
-        self.preview_button = QPushButton("Xem trước")
+        self.clear_loop_button = QPushButton(tr("Bỏ A–B"))
+        self.a_button.setToolTip(tr("Đặt điểm A của đoạn lặp tại vị trí hiện tại"))
+        self.b_button.setToolTip(
+            tr("Đặt điểm B; khi có cả A và B, bài lặp đoạn A–B cho tới khi Dừng"))
+        self.a_button.setAccessibleName(tr("Đặt điểm A"))
+        self.b_button.setAccessibleName(tr("Đặt điểm B"))
+        self.preview_button = QPushButton(tr("Xem trước"))
         self.preview_button.setCheckable(True)
         self.preview_button.setToolTip(
-            "Phát trên bàn phím ảo trong ứng dụng, không gửi phím nào ra game.")
-        self.keyboard_button = QPushButton("Bàn phím")
+            tr("Phát trên bàn phím ảo trong ứng dụng, không gửi phím nào ra game."))
+        self.keyboard_button = QPushButton(tr("Bàn phím"))
         self.keyboard_button.setCheckable(True)
-        self.keyboard_button.setToolTip("Hiện lưới 15 phím sáng theo nốt đang phát")
+        self.keyboard_button.setToolTip(tr("Hiện lưới 15 phím sáng theo nốt đang phát"))
         self.speed_label = speed_label
         tools.addWidget(speed_label)
         tools.addWidget(self.speed)
@@ -82,13 +90,13 @@ class PlaybackDock(QFrame):
         row.addLayout(center, 5)
 
         controls = QHBoxLayout()
-        self.play_button, self.next_button = QPushButton("Phát"), QPushButton("Tiếp")
-        self.stop_button, self.mini_button = QPushButton("Dừng"), QPushButton("Thu nhỏ")
+        self.play_button, self.next_button = QPushButton(tr("Phát")), QPushButton(tr("Tiếp"))
+        self.stop_button, self.mini_button = QPushButton(tr("Dừng")), QPushButton(tr("Thu nhỏ"))
         self.play_button.setProperty("primary", True)
         self.stop_button.setProperty("danger", True)
-        self.play_button.setAccessibleName("Phát hoặc tạm dừng (Space)")
-        self.next_button.setAccessibleName("Bài tiếp theo (Ctrl+Phải)")
-        self.stop_button.setAccessibleName("Dừng (Esc)")
+        self.play_button.setAccessibleName(tr("Phát hoặc tạm dừng (Space)"))
+        self.next_button.setAccessibleName(tr("Bài tiếp theo (Ctrl+Phải)"))
+        self.stop_button.setAccessibleName(tr("Dừng (Esc)"))
         self.mini_button.setAccessibleName("Mini player (Ctrl+M)")
         for button in (self.play_button, self.next_button, self.stop_button, self.mini_button):
             button.setProperty("compact", True)
@@ -129,7 +137,7 @@ class PlaybackDock(QFrame):
         if song:
             self.title.setText(song.title)
             self.title.setToolTip(song.title)
-        self.set_status(STATE_LABELS.get(state, state))
+        self.set_status(tr(STATE_LABELS.get(state, state)))
         self.play_button.setText(play_label(state))
         self.play_button.setEnabled(state not in {"starting", "stopping"})
         self.next_button.setEnabled(state != "stopping")

@@ -6,6 +6,7 @@ from PySide6.QtCore import QObject, QRectF, Qt, Signal
 from PySide6.QtGui import QAction, QColor, QFont, QIcon, QPainter, QPixmap
 from PySide6.QtWidgets import QMenu, QSystemTrayIcon
 
+from ..i18n import tr
 from .theme import Tokens
 
 
@@ -43,16 +44,16 @@ class TrayController(QObject):
         self.icon.setToolTip("Sky Macro Player")
         menu = QMenu()
         self.menu = menu
-        self.play_action = QAction("Phát / Tạm dừng", menu)
+        self.play_action = QAction(tr("Phát / Tạm dừng"), menu)
         actions = (
-            ("Mở cửa sổ", self.show_requested),
+            (tr("Mở cửa sổ"), self.show_requested),
             (None, None),
             (self.play_action, self.play_requested),
-            ("Bài tiếp theo", self.next_requested),
-            ("Dừng", self.stop_requested),
+            (tr("Bài tiếp theo"), self.next_requested),
+            (tr("Dừng"), self.stop_requested),
             ("Mini player", self.mini_requested),
             (None, None),
-            ("Thoát", self.quit_requested),
+            (tr("Thoát"), self.quit_requested),
         )
         for label, signal in actions:
             if label is None:
@@ -77,7 +78,8 @@ class TrayController(QObject):
 
     def set_status(self, song_title: str | None, state_label: str) -> None:
         self.icon.setToolTip(
-            f"Sky Macro Player — {state_label}" + (f": {song_title}" if song_title else ""))
+            tr("Sky Macro Player — {state_label}").format(
+                state_label=state_label) + (f": {song_title}" if song_title else ""))
 
     def notify(self, title: str, message: str) -> None:
         if self.icon.isVisible() and self.icon.supportsMessages():

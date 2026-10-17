@@ -6,26 +6,27 @@ from PySide6.QtCore import QPoint, Qt, Signal
 from PySide6.QtGui import QFontMetrics, QGuiApplication
 from PySide6.QtWidgets import QHBoxLayout, QLabel, QPushButton, QSizePolicy, QVBoxLayout, QWidget
 
+from ..i18n import N_, tr
 from ..library import Song
 from .theme import STYLE
 from .widgets import format_duration
 
 STATE_LABELS = {
-    "idle": "Sẵn sàng",
-    "countdown": "Đang đếm ngược",
-    "starting": "Đang chuẩn bị",
-    "playing": "Đang phát",
-    "paused": "Đã tạm dừng",
-    "focus_paused": "Đang chờ cửa sổ Sky",
-    "stopping": "Đang dừng an toàn",
-    "error": "Có lỗi phát nhạc",
+    "idle": N_("Sẵn sàng"),
+    "countdown": N_("Đang đếm ngược"),
+    "starting": N_("Đang chuẩn bị"),
+    "playing": N_("Đang phát"),
+    "paused": N_("Đã tạm dừng"),
+    "focus_paused": N_("Đang chờ cửa sổ Sky"),
+    "stopping": N_("Đang dừng an toàn"),
+    "error": N_("Có lỗi phát nhạc"),
 }
 
 
 def play_label(state: str) -> str:
     if state in {"paused", "focus_paused"}:
-        return "Tiếp tục"
-    return "Tạm dừng" if state == "playing" else "Phát"
+        return tr("Tiếp tục")
+    return tr("Tạm dừng") if state == "playing" else tr("Phát")
 
 
 def clamp_to_screens(position: QPoint, size) -> QPoint:
@@ -51,7 +52,7 @@ class MiniOverlay(QWidget):
 
     def __init__(self) -> None:
         super().__init__(None, Qt.WindowType.Tool | Qt.WindowType.WindowStaysOnTopHint)
-        self.setWindowTitle("Sky Macro Player — Mini")
+        self.setWindowTitle(tr("Sky Macro Player — Mini"))
         self.setObjectName("appRoot")
         self.setMinimumSize(420, 112)
         self.resize(500, 116)
@@ -61,10 +62,10 @@ class MiniOverlay(QWidget):
         outer.setContentsMargins(14, 10, 14, 10)
         outer.setSpacing(6)
         top = QHBoxLayout()
-        self.title = QLabel("Chưa chọn bài")
+        self.title = QLabel(tr("Chưa chọn bài"))
         self.title.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred)
         self.title.setStyleSheet("font-weight: 600;")
-        self.status = QLabel("Sẵn sàng")
+        self.status = QLabel(tr("Sẵn sàng"))
         self.status.setObjectName("muted")
         top.addWidget(self.title, 1)
         top.addWidget(self.status)
@@ -75,10 +76,10 @@ class MiniOverlay(QWidget):
         self.time_label.setMinimumWidth(84)
         bottom.addWidget(self.time_label)
         bottom.addStretch(1)
-        self.play_button = QPushButton("Phát")
+        self.play_button = QPushButton(tr("Phát"))
         self.play_button.setProperty("primary", True)
-        self.next_button, self.stop_button = QPushButton("Tiếp"), QPushButton("Dừng")
-        self.pin_button, self.expand_button = QPushButton("Ghim"), QPushButton("Mở rộng")
+        self.next_button, self.stop_button = QPushButton(tr("Tiếp")), QPushButton(tr("Dừng"))
+        self.pin_button, self.expand_button = QPushButton(tr("Ghim")), QPushButton(tr("Mở rộng"))
         self.pin_button.setCheckable(True)
         self.pin_button.setChecked(True)
         self.stop_button.setProperty("danger", True)
@@ -88,17 +89,17 @@ class MiniOverlay(QWidget):
             button.setMinimumSize(52, 44)
             bottom.addWidget(button)
         outer.addLayout(bottom)
-        self.play_button.setAccessibleName("Phát hoặc tạm dừng")
-        self.next_button.setAccessibleName("Phát bài tiếp theo")
-        self.stop_button.setAccessibleName("Dừng phát nhạc")
-        self.pin_button.setAccessibleName("Ghim mini player trên cùng")
-        self.expand_button.setAccessibleName("Mở cửa sổ đầy đủ")
+        self.play_button.setAccessibleName(tr("Phát hoặc tạm dừng"))
+        self.next_button.setAccessibleName(tr("Phát bài tiếp theo"))
+        self.stop_button.setAccessibleName(tr("Dừng phát nhạc"))
+        self.pin_button.setAccessibleName(tr("Ghim mini player trên cùng"))
+        self.expand_button.setAccessibleName(tr("Mở cửa sổ đầy đủ"))
         self.play_button.clicked.connect(self.play_requested)
         self.next_button.clicked.connect(self.next_requested)
         self.stop_button.clicked.connect(self.stop_requested)
         self.pin_button.toggled.connect(self.pin_changed)
         self.expand_button.clicked.connect(self.expand_requested)
-        self._full_title = "Chưa chọn bài"
+        self._full_title = tr("Chưa chọn bài")
 
     def set_progress(self, elapsed: int, duration: int) -> None:
         self.time_label.setText(f"{format_duration(elapsed)} / {format_duration(duration)}")
@@ -109,10 +110,10 @@ class MiniOverlay(QWidget):
             self._full_title, Qt.TextElideMode.ElideRight, max(60, self.title.width())))
 
     def sync(self, song: Song | None, state: str, status: str | None = None) -> None:
-        self._full_title = song.title if song else "Chưa chọn bài"
+        self._full_title = song.title if song else tr("Chưa chọn bài")
         self.title.setToolTip(song.title if song else "")
         self._elide_title()
-        self.status.setText(status or STATE_LABELS.get(state, state))
+        self.status.setText(status or tr(STATE_LABELS.get(state, state)))
         self.play_button.setText(play_label(state))
         self.play_button.setEnabled(state not in {"starting", "stopping"})
         self.next_button.setEnabled(state != "stopping")

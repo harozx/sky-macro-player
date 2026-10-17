@@ -13,13 +13,20 @@ from PySide6.QtGui import QCloseEvent
 from macro_player import paths
 from macro_player.diagnostics import build_report, redacted_settings
 from macro_player.domain import (
-    CURRENT_SETTINGS_VERSION, HistoryEntry, LibraryState, Settings, SongPreference,
+    CURRENT_SETTINGS_VERSION,
+    HistoryEntry,
+    LibraryState,
+    Settings,
+    SongPreference,
 )
 from macro_player.engine import MacroPlayer
 from macro_player.hotkeys import conflicts_with_music_keys
 from macro_player.library import Library, Song, apply_layer_policy, is_layered
 from macro_player.repositories import (
-    LibraryStateRepository, SettingsRepository, SheetRepository, ValidationError,
+    LibraryStateRepository,
+    SettingsRepository,
+    SheetRepository,
+    ValidationError,
 )
 from macro_player.ui.dialogs import CommandPalette, OnboardingWizard
 from macro_player.ui.main_window import MainWindow
@@ -99,10 +106,14 @@ def write_sheet(folder: Path, name: str, notes, title=None) -> Path:
 
 
 def test_layer_policies_never_change_sheet_silently(tmp_path: Path):
-    write_sheet(tmp_path, "layered.json", [(0, "1Key0"), (10, "2Key0"), (10, "1Key1"), (20, "3Key4")])
+    write_sheet(
+        tmp_path, "layered.json", [(0, "1Key0"), (10, "2Key0"), (10, "1Key1"), (20, "3Key4")]
+    )
     parsed = SheetRepository(tmp_path).load("layered.json")
     assert is_layered(parsed)
-    assert [keys for _, keys in apply_layer_policy(parsed, None)] == [("1Key0",), ("2Key0",), ("1Key1",), ("3Key4",)]
+    assert [keys for _, keys in apply_layer_policy(parsed, None)] == [
+        ("1Key0",), ("2Key0",), ("1Key1",), ("3Key4",)
+    ]
     merged = apply_layer_policy(parsed, "merge")
     assert [keys for _, keys in merged] == [("1Key0",), ("1Key0",), ("1Key1",), ("1Key4",)]
     layer1 = apply_layer_policy(parsed, "layer1")

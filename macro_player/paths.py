@@ -15,6 +15,8 @@ import shutil
 import sys
 from pathlib import Path
 
+from .i18n import tr
+
 APP_NAME = "SkyMacroPlayer"
 DATA_DIR_ENV = "SKY_MACRO_DATA_DIR"
 
@@ -120,5 +122,6 @@ def migrate_legacy_user_data(
                 shutil.copy2(source, destination)
                 copied.append(destination)
     except OSError as exc:
-        raise RuntimeError(f"Không thể chuyển dữ liệu người dùng: {exc}") from exc
+        raise RuntimeError(tr("Không thể chuyển dữ liệu người dùng: {exc}").format(
+            exc=exc)) from exc
     return tuple(copied)

@@ -9,6 +9,7 @@ from PySide6.QtCore import QObject, QUrl, Signal
 from PySide6.QtNetwork import QNetworkAccessManager, QNetworkReply, QNetworkRequest
 
 from . import __version__
+from .i18n import tr
 
 RELEASES_API = "https://api.github.com/repos/harozx/macro_project/releases/latest"
 RELEASES_PAGE = "https://github.com/harozx/macro_project/releases/latest"
@@ -51,7 +52,7 @@ class UpdateChecker(QObject):
             if reply.error() != QNetworkReply.NetworkError.NoError:
                 self.failed.emit(reply.errorString())
                 return
-            self.handle_payload(bytes(reply.readAll()))
+            self.handle_payload(bytes(reply.readAll()))  # type: ignore[call-overload]
         finally:
             reply.deleteLater()
 
@@ -61,7 +62,7 @@ class UpdateChecker(QObject):
             tag = str(data["tag_name"])
             url = str(data.get("html_url") or RELEASES_PAGE)
         except (ValueError, KeyError, TypeError, UnicodeDecodeError):
-            self.failed.emit("Phản hồi từ GitHub không hợp lệ.")
+            self.failed.emit(tr("Phản hồi từ GitHub không hợp lệ."))
             return
         if not url.startswith("https://github.com/"):
             url = RELEASES_PAGE

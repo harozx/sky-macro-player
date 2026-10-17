@@ -6,10 +6,11 @@ from PySide6.QtCore import QElapsedTimer, QPointF, QRectF, QSize, Qt, QTimer, Si
 from PySide6.QtGui import QColor, QFont, QKeyEvent, QLinearGradient, QPainter, QPen
 from PySide6.QtWidgets import QGridLayout, QLabel, QLineEdit, QSizePolicy, QWidget
 
+from ..i18n import tr
 from .theme import Tokens
 
 
-def format_duration(milliseconds: int) -> str:
+def format_duration(milliseconds: float) -> str:
     seconds = max(0, int(milliseconds) // 1000)
     return f"{seconds // 60}:{seconds % 60:02d}"
 
@@ -28,11 +29,12 @@ class NoteRunway(QWidget):
         super().__init__(parent)
         self.setMinimumHeight(74)
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
-        self.setAccessibleName("Tiến trình nốt nhạc")
+        self.setAccessibleName(tr("Tiến trình nốt nhạc"))
         self.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         self._moments: list[int] = []
-        self._duration, self._elapsed = 1, 0
-        self._elapsed_before_run = 0
+        self._duration = 1
+        self._elapsed: float = 0
+        self._elapsed_before_run: float = 0
         self._playing = self._reduced_motion = False
         self.speed = 1.0
         self.seekable = False
@@ -175,7 +177,9 @@ class NoteRunway(QWidget):
                 if label:
                     painter.drawText(QPointF(x + 3, bounds.top() + 15), label)
         painter.setPen(QPen(QColor(Tokens.APRICOT), 2))
-        painter.drawLine(int(playhead), int(bounds.top() + 7), int(playhead), int(bounds.bottom() - 7))
+        painter.drawLine(
+            int(playhead), int(bounds.top() + 7), int(playhead), int(bounds.bottom() - 7)
+        )
         painter.setPen(Qt.PenStyle.NoPen)
         for index, moment in enumerate(self._moments):
             x = self._x_for(moment)
@@ -198,7 +202,7 @@ class KeyGrid(QWidget):
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
-        self.setAccessibleName("Bàn phím 15 nốt")
+        self.setAccessibleName(tr("Bàn phím 15 nốt"))
         grid = QGridLayout(self)
         grid.setContentsMargins(0, 0, 0, 0)
         grid.setSpacing(4)
@@ -220,7 +224,7 @@ class KeyGrid(QWidget):
 
     def set_labels(self, keys: list[str]) -> None:
         self._labels = [str(key) for key in keys][:15] + [""] * max(0, 15 - len(keys))
-        for cell, label in zip(self.cells, self._labels):
+        for cell, label in zip(self.cells, self._labels, strict=False):
             cell.setText(label.upper() if label != ";" else ";")
         self.clear()
 
@@ -296,8 +300,8 @@ class HotkeyEdit(QLineEdit):
 
     def __init__(self, value: str = "", parent: QWidget | None = None) -> None:
         super().__init__(value, parent)
-        self.setPlaceholderText("Nhấn tổ hợp phím…")
-        self.setToolTip("Nhấn tổ hợp phím muốn dùng. Backspace để xóa, Tab để chuyển ô.")
+        self.setPlaceholderText(tr("Nhấn tổ hợp phím…"))
+        self.setToolTip(tr("Nhấn tổ hợp phím muốn dùng. Backspace để xóa, Tab để chuyển ô."))
 
     def keyPressEvent(self, event: QKeyEvent) -> None:
         key = event.key()

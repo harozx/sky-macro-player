@@ -5,25 +5,35 @@ from __future__ import annotations
 from PySide6.QtCore import Qt, Signal, Slot
 from PySide6.QtGui import QKeySequence, QShortcut
 from PySide6.QtWidgets import (
-    QButtonGroup, QComboBox, QFrame, QHBoxLayout, QLabel, QLineEdit, QListWidget,
-    QListWidgetItem, QPushButton, QVBoxLayout, QWidget,
+    QButtonGroup,
+    QComboBox,
+    QFrame,
+    QHBoxLayout,
+    QLabel,
+    QLineEdit,
+    QListWidget,
+    QListWidgetItem,
+    QPushButton,
+    QVBoxLayout,
+    QWidget,
 )
 
+from ..i18n import N_, tr
 from ..library import LAYER_POLICY_LABELS, Song
 from ..search import fold_text, matches
 from .widgets import format_duration
 
 SORT_OPTIONS = (
-    ("Tên A–Z", "title"),
-    ("Tên Z–A", "title_desc"),
-    ("Ngắn nhất", "shortest"),
-    ("Dài nhất", "longest"),
-    ("Mới thêm", "newest"),
-    ("Nghe nhiều", "most_played"),
-    ("Nghe gần đây", "recent"),
+    (N_("Tên A–Z"), "title"),
+    (N_("Tên Z–A"), "title_desc"),
+    (N_("Ngắn nhất"), "shortest"),
+    (N_("Dài nhất"), "longest"),
+    (N_("Mới thêm"), "newest"),
+    (N_("Nghe nhiều"), "most_played"),
+    (N_("Nghe gần đây"), "recent"),
 )
-FILTERS = (("Tất cả", "all"), ("Yêu thích", "favorites"),
-           ("Phát được", "playable"), ("Gần đây", "recent"))
+FILTERS = ((N_("Tất cả"), "all"), (N_("Yêu thích"), "favorites"),
+           (N_("Phát được"), "playable"), (N_("Gần đây"), "recent"))
 
 
 def sort_songs(songs: list[Song], key: str) -> list[Song]:
@@ -51,7 +61,7 @@ class FilterPill(QPushButton):
         self.key = key
         self.setCheckable(True)
         self.setProperty("compact", True)
-        self.setAccessibleName(f"Lọc: {text}")
+        self.setAccessibleName(tr("Lọc: {text}").format(text=text))
 
 
 class LibraryPage(QWidget):
@@ -67,16 +77,16 @@ class LibraryPage(QWidget):
         self.policies: dict[str, str | None] = {}
         layout = QVBoxLayout(self)
         layout.setContentsMargins(26, 22, 22, 18)
-        eyebrow = QLabel("THƯ VIỆN BÀI HÁT")
+        eyebrow = QLabel(tr("THƯ VIỆN BÀI HÁT"))
         eyebrow.setObjectName("eyebrow")
         header = QHBoxLayout()
-        title = QLabel("Thư viện")
+        title = QLabel(tr("Thư viện"))
         title.setObjectName("pageTitle")
         header.addWidget(title)
         header.addStretch(1)
-        self.import_button = QPushButton("Nhập sheet…")
+        self.import_button = QPushButton(tr("Nhập sheet…"))
         self.import_button.setProperty("outline", True)
-        self.import_button.setToolTip("Chọn file .txt/.json hoặc kéo-thả file vào cửa sổ")
+        self.import_button.setToolTip(tr("Chọn file .txt/.json hoặc kéo-thả file vào cửa sổ"))
         header.addWidget(self.import_button)
         self.summary = QLabel()
         self.summary.setObjectName("muted")
@@ -86,21 +96,21 @@ class LibraryPage(QWidget):
         layout.addWidget(self.summary)
         toolbar = QHBoxLayout()
         self.search = QLineEdit()
-        self.search.setPlaceholderText("Tìm theo tên bài, không cần gõ dấu… (Ctrl+F)")
+        self.search.setPlaceholderText(tr("Tìm theo tên bài, không cần gõ dấu… (Ctrl+F)"))
         self.search.setClearButtonEnabled(True)
-        self.search.setAccessibleName("Tìm bài hát")
+        self.search.setAccessibleName(tr("Tìm bài hát"))
         toolbar.addWidget(self.search, 1)
         self.sort = QComboBox()
-        self.sort.setAccessibleName("Sắp xếp danh sách bài")
+        self.sort.setAccessibleName(tr("Sắp xếp danh sách bài"))
         for label, key in SORT_OPTIONS:
-            self.sort.addItem(label, key)
+            self.sort.addItem(tr(label), key)
         toolbar.addWidget(self.sort)
         layout.addLayout(toolbar)
         pills = QHBoxLayout()
         self.filters = QButtonGroup(self)
         self.filters.setExclusive(True)
         for label, key in FILTERS:
-            pill = FilterPill(label, key)
+            pill = FilterPill(tr(label), key)
             pill.setChecked(key == "all")
             self.filters.addButton(pill)
             pills.addWidget(pill)
@@ -110,7 +120,8 @@ class LibraryPage(QWidget):
         pills.addWidget(self.result_count)
         layout.addLayout(pills)
         self.list = QListWidget()
-        self.list.setAccessibleName("Danh sách bài hát. Enter để phát, Ctrl+Enter để thêm hàng chờ")
+        self.list.setAccessibleName(
+            tr("Danh sách bài hát. Enter để phát, Ctrl+Enter để thêm hàng chờ"))
         self.list.setUniformItemSizes(True)
         layout.addWidget(self.list, 1)
         self.empty_state = QLabel()
@@ -130,11 +141,11 @@ class LibraryPage(QWidget):
         self.detail_meta.setObjectName("muted")
         self.detail_meta.setWordWrap(True)
         policy_row = QHBoxLayout()
-        self.policy_label = QLabel("Bài có lớp 2Key/3Key:")
+        self.policy_label = QLabel(tr("Bài có lớp 2Key/3Key:"))
         self.policy = QComboBox()
-        self.policy.setAccessibleName("Cách xử lý lớp 2Key/3Key")
+        self.policy.setAccessibleName(tr("Cách xử lý lớp 2Key/3Key"))
         for value, label in LAYER_POLICY_LABELS.items():
-            self.policy.addItem(label, value or "")
+            self.policy.addItem(tr(label), value or "")
         policy_row.addWidget(self.policy_label)
         policy_row.addWidget(self.policy, 1)
         detail_layout.addWidget(self.detail_title)
@@ -143,9 +154,10 @@ class LibraryPage(QWidget):
         layout.addWidget(self.detail)
 
         actions = QHBoxLayout()
-        play = QPushButton("Phát bài đã chọn")
+        play = QPushButton(tr("Phát bài đã chọn"))
         play.setProperty("primary", True)
-        queue, favorite = QPushButton("Thêm hàng chờ"), QPushButton("Đổi trạng thái yêu thích")
+        queue, favorite = QPushButton(
+            tr("Thêm hàng chờ")), QPushButton(tr("Đổi trạng thái yêu thích"))
         play.setToolTip("Enter")
         queue.setToolTip("Ctrl+Enter")
         for button in (play, queue, favorite):
@@ -153,10 +165,13 @@ class LibraryPage(QWidget):
         actions.addStretch(1)
         layout.addLayout(actions)
         list_actions = QHBoxLayout()
-        self.play_all_button = QPushButton("Phát tất cả")
-        self.shuffle_button = QPushButton("Trộn bài")
-        self.play_all_button.setToolTip("Thay hàng chờ bằng các bài đang hiển thị rồi phát từ đầu.")
-        self.shuffle_button.setToolTip("Thay hàng chờ bằng các bài đang hiển thị theo thứ tự ngẫu nhiên.")
+        self.play_all_button = QPushButton(tr("Phát tất cả"))
+        self.shuffle_button = QPushButton(tr("Trộn bài"))
+        self.play_all_button.setToolTip(
+            tr("Thay hàng chờ bằng các bài đang hiển thị rồi phát từ đầu."))
+        self.shuffle_button.setToolTip(
+            tr("Thay hàng chờ bằng các bài đang hiển thị theo thứ tự ngẫu nhiên.")
+        )
         for button in (self.play_all_button, self.shuffle_button):
             list_actions.addWidget(button)
         list_actions.addStretch(1)
@@ -191,9 +206,9 @@ class LibraryPage(QWidget):
         if song.duration_ms:
             parts.append(format_duration(song.duration_ms))
         if song.favorite:
-            parts.append("Yêu thích")
+            parts.append(tr("Yêu thích"))
         if not song.playable:
-            parts.append("Không hỗ trợ")
+            parts.append(tr("Không hỗ trợ"))
         return "  ·  ".join(parts)
 
     def set_songs(self, songs: list[Song]) -> None:
@@ -213,8 +228,9 @@ class LibraryPage(QWidget):
                 self.list.setCurrentItem(item)
         playable = sum(song.playable for song in self.songs)
         self.summary.setText(
-            f"{len(self.songs)} bài · {playable} phát được. "
-            "Tìm bài, đánh dấu yêu thích hoặc đưa vào hàng chờ."
+            tr("{0} bài · {playable} phát được. "
+            "Tìm bài, đánh dấu yêu thích hoặc đưa vào hàng chờ.").format(
+                len(self.songs), playable=playable)
         )
         self.apply_filter()
         self._show_details()
@@ -237,19 +253,20 @@ class LibraryPage(QWidget):
             item.setHidden(not show)
             visible += int(show)
         total = self.list.count()
-        self.result_count.setText(f"Hiển thị {visible}/{total}")
+        self.result_count.setText(tr("Hiển thị {visible}/{total}").format(
+            visible=visible, total=total))
         if not total:
-            message = ("Thư viện đang trống. Nhấn “Nhập sheet…” hoặc kéo-thả file "
-                       ".txt/.json vào cửa sổ để thêm bài.")
+            message = (tr("Thư viện đang trống. Nhấn “Nhập sheet…” hoặc kéo-thả file "
+                       ".txt/.json vào cửa sổ để thêm bài."))
         elif not visible and query:
-            message = (f"Không có bài nào khớp “{query}”. "
-                       "Hãy thử từ khóa ngắn hơn hoặc chọn bộ lọc Tất cả.")
+            message = (tr("Không có bài nào khớp “{query}”. "
+                       "Hãy thử từ khóa ngắn hơn hoặc chọn bộ lọc Tất cả.").format(query=query))
         elif not visible:
             message = {
-                "favorites": "Chưa có bài yêu thích. Chọn một bài rồi nhấn "
-                             "“Đổi trạng thái yêu thích”.",
-                "recent": "Chưa phát bài nào. Các bài đã phát sẽ hiện ở đây.",
-            }.get(mode, "Không có bài phù hợp với bộ lọc này.")
+                "favorites": tr("Chưa có bài yêu thích. Chọn một bài rồi nhấn "
+                             "“Đổi trạng thái yêu thích”."),
+                "recent": tr("Chưa phát bài nào. Các bài đã phát sẽ hiện ở đây."),
+            }.get(mode, tr("Không có bài phù hợp với bộ lọc này."))
         else:
             message = ""
         self.empty_state.setText(message)
@@ -257,7 +274,7 @@ class LibraryPage(QWidget):
         self.list.setVisible(not message)
         current = self.list.currentItem()
         if current is not None and current.isHidden():
-            self.list.setCurrentItem(None)
+            self.list.setCurrentItem(None)  # type: ignore[call-overload]
             self._focus_first_result(move_focus=False)
         has_playable = any(song.playable for song in self.visible_songs())
         self.play_all_button.setEnabled(has_playable)
@@ -306,13 +323,14 @@ class LibraryPage(QWidget):
         if song.duration_ms:
             parts.append(format_duration(song.duration_ms))
         if song.note_count:
-            parts.append(f"{song.note_count} nốt")
-            parts.append(f"{song.density:.1f} nốt/giây · {song.difficulty}")
+            parts.append(tr("{note_count} nốt").format(note_count=song.note_count))
+            parts.append(tr("{density:.1f} nốt/giây · {difficulty}").format(
+                density=song.density, difficulty=song.difficulty))
         if song.play_count:
-            parts.append(f"đã phát {song.play_count} lần")
+            parts.append(tr("đã phát {play_count} lần").format(play_count=song.play_count))
         if not song.playable:
-            parts.append("chưa phát được với bộ phím/lựa chọn hiện tại")
-        self.detail_meta.setText(" · ".join(parts) or "Sheet chưa đọc được.")
+            parts.append(tr("chưa phát được với bộ phím/lựa chọn hiện tại"))
+        self.detail_meta.setText(" · ".join(parts) or tr("Sheet chưa đọc được."))
         policy = self.policies.get(song.identity)
         self.policy_label.setVisible(song.layered)
         self.policy.setVisible(song.layered)

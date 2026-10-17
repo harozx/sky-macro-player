@@ -5,8 +5,8 @@ from pathlib import Path
 
 import pytest
 
-from macro_player.search import fold_text, matches
 from macro_player.library import Song
+from macro_player.search import fold_text, matches
 from macro_player.ui.library_page import LibraryPage, sort_songs
 from macro_player.ui.main_window import MainWindow
 from macro_player.ui.queue_panel import QueuePanel

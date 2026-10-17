@@ -6,8 +6,12 @@ import math
 import struct
 import wave
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from PySide6.QtCore import QObject, QUrl
+
+if TYPE_CHECKING:
+    from PySide6.QtMultimedia import QSoundEffect
 
 SEMITONES = (0, 2, 4, 5, 7, 9, 11, 12, 14, 16, 17, 19, 21, 23, 24)
 BASE_HZ = 261.63
@@ -47,7 +51,7 @@ class PreviewSynth(QObject):
     def __init__(self, folder: Path, parent: QObject | None = None) -> None:
         super().__init__(parent)
         self.folder = folder
-        self._effects = None
+        self._effects: list[QSoundEffect] | None = None
         self.available = True
 
     def _load(self) -> bool:
@@ -70,6 +74,8 @@ class PreviewSynth(QObject):
     def play_indices(self, indices: list[int]) -> None:
         if not self.available or not self._load():
             return
+        effects = self._effects
+        assert effects is not None
         for index in indices:
-            if 0 <= index < len(self._effects):
-                self._effects[index].play()
+            if 0 <= index < len(effects):
+                effects[index].play()

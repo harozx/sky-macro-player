@@ -7,7 +7,7 @@ import ctypes.wintypes
 import os
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable, Protocol
+from typing import Any, Iterable, Protocol, cast
 
 
 @dataclass(frozen=True, slots=True)
@@ -115,7 +115,7 @@ class WindowsFocusService:
     def __init__(self, target_exe: str | None = None) -> None:
         self.target_exe = target_exe
         self._user32 = ctypes.windll.user32 if os.name == "nt" else None
-        self._kernel32 = ctypes.windll.kernel32 if os.name == "nt" else None
+        self._kernel32 = cast(Any, ctypes.windll.kernel32 if os.name == "nt" else None)
         if self._user32 is not None:
             wintypes = ctypes.wintypes
             self._user32.GetForegroundWindow.restype = wintypes.HWND

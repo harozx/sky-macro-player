@@ -4,9 +4,9 @@ from PySide6.QtCore import QObject, Qt, Signal
 from PySide6.QtGui import QKeySequence
 
 from macro_player.domain import Settings
-from macro_player.repositories import SettingsRepository
 from macro_player.hotkeys import DefaultHotkeyService
 from macro_player.library import Song
+from macro_player.repositories import SettingsRepository
 from macro_player.ui.hotkeys_page import EditableHotkeysPage
 from macro_player.ui.main_window import MainWindow
 

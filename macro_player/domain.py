@@ -6,7 +6,6 @@ from dataclasses import dataclass, field
 from types import MappingProxyType
 from typing import Any, Mapping, Tuple
 
-
 CURRENT_SETTINGS_VERSION = 4
 
 
@@ -38,6 +37,7 @@ class Settings:
     mini_position: Tuple[int, int] | None = None
     first_run_completed: bool = False
     check_updates: bool = False
+    language: str = "vi"
 
     def __post_init__(self) -> None:
         # Prevent callers from mutating a frozen Settings through its mapping.
@@ -65,6 +65,7 @@ class Settings:
             "mini_position": list(self.mini_position) if self.mini_position else None,
             "first_run_completed": self.first_run_completed,
             "check_updates": self.check_updates,
+            "language": self.language,
         }
 
 

@@ -5,10 +5,11 @@ from __future__ import annotations
 from dataclasses import replace
 from typing import Callable, Iterable
 
-from PySide6.QtCore import QObject, QTimer, Signal
 from pynput import keyboard
+from PySide6.QtCore import QObject, QTimer, Signal
 
 from .domain import Settings
+from .i18n import tr
 
 RESERVED = frozenset({"<ctrl>+<alt>+<delete>", "<cmd>+l"})
 MODIFIERS = ("ctrl", "alt", "shift", "cmd")
@@ -72,14 +73,16 @@ class GlobalHotkeyService(QObject):
             (settings.hotkeys.get("stop", "esc"), self.stop_requested.emit),
             (settings.hotkeys.get("next", "f10"), self.next_requested.emit),
         ]
-        raw.extend((key, lambda index=index: self.slot_requested.emit(index))
+        raw.extend((key, lambda index=index: self.slot_requested.emit(index))  # type: ignore[misc]
                    for index, key in enumerate(settings.hotkey_keys))
         bindings = [(canonical_hotkey(key), callback) for key, callback in raw if key.strip()]
         keys = [key for key, _ in bindings]
         if len(keys) != len(set(keys)):
-            raise ValueError("Global hotkeys bị trùng; cấu hình đang dùng được giữ nguyên.")
+            raise ValueError(tr("Global hotkeys bị trùng; cấu hình đang dùng được giữ nguyên."))
         if any(key in self.RESERVED for key in keys):
-            raise ValueError("Một global hotkey được Windows giữ riêng; cấu hình đang dùng được giữ nguyên.")
+            raise ValueError(
+                tr("Một global hotkey được Windows giữ riêng; cấu hình đang dùng được giữ nguyên.")
+            )
         for key in keys:
             keyboard.HotKey.parse(key)
         return dict(bindings)
@@ -88,7 +91,7 @@ class GlobalHotkeyService(QObject):
         try:
             candidate = keyboard.GlobalHotKeys(self._bindings(settings))
         except Exception as exc:
-            self.error.emit(f"Không thể áp dụng global hotkeys: {exc}")
+            self.error.emit(tr("Không thể áp dụng global hotkeys: {exc}").format(exc=exc))
             return False
 
         previous_settings = self._settings
@@ -105,7 +108,7 @@ class GlobalHotkeyService(QObject):
                 join(0.05)
             is_alive = getattr(candidate, "is_alive", None)
             if callable(is_alive) and not is_alive():
-                raise OSError("listener đã dừng trong lúc khởi tạo hook")
+                raise OSError(tr("listener đã dừng trong lúc khởi tạo hook"))
         except Exception as exc:
             try:
                 candidate.stop()
@@ -118,16 +121,18 @@ class GlobalHotkeyService(QObject):
                     self._listener = rollback
                 except Exception as rollback_exc:
                     self.error.emit(
-                        f"Không thể bật global hotkeys mới ({exc}); "
-                        f"khôi phục cấu hình cũ cũng thất bại ({rollback_exc})."
+                        tr("Không thể bật global hotkeys mới ({exc}); "
+                        "khôi phục cấu hình cũ cũng thất bại ({rollback_exc}).").format(
+                            exc=exc, rollback_exc=rollback_exc)
                     )
                     return False
             suffix = (
-                "Cấu hình cũ đã được khôi phục."
+                tr("Cấu hình cũ đã được khôi phục.")
                 if previous_settings is not None
-                else "Chưa có listener nào được bật."
+                else tr("Chưa có listener nào được bật.")
             )
-            self.error.emit(f"Không thể bật global hotkeys mới: {exc}. {suffix}")
+            self.error.emit(tr("Không thể bật global hotkeys mới: {exc}. {suffix}").format(
+                exc=exc, suffix=suffix))
             return False
         self._listener = candidate
         self._settings = settings
@@ -141,8 +146,8 @@ class GlobalHotkeyService(QObject):
             self._listener = None
             self._listener_watch.stop()
             self.error.emit(
-                "Global hotkeys đã dừng ngoài dự kiến. Dùng nút Dừng trong ứng dụng "
-                "và mở lại ứng dụng để khôi phục hook."
+                tr("Global hotkeys đã dừng ngoài dự kiến. Dùng nút Dừng trong ứng dụng "
+                "và mở lại ứng dụng để khôi phục hook.")
             )
 
     def stop(self) -> None:

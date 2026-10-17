@@ -6,11 +6,19 @@ from pathlib import Path
 
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
-    QComboBox, QFormLayout, QHBoxLayout, QLabel, QPushButton, QScrollArea, QVBoxLayout, QWidget,
+    QComboBox,
+    QFormLayout,
+    QHBoxLayout,
+    QLabel,
+    QPushButton,
+    QScrollArea,
+    QVBoxLayout,
+    QWidget,
 )
 
 from ..domain import Settings
 from ..hotkeys import RESERVED, canonical_hotkey, conflicts_with_music_keys
+from ..i18n import tr
 from ..library import Song
 from .theme import Tokens
 from .widgets import HotkeyEdit
@@ -34,13 +42,13 @@ class EditableHotkeysPage(QWidget):
         layout.setContentsMargins(28, 24, 28, 24)
         scroll.setWidget(content)
         outer.addWidget(scroll)
-        eyebrow = QLabel("ĐIỀU KHIỂN")
+        eyebrow = QLabel(tr("ĐIỀU KHIỂN"))
         eyebrow.setObjectName("eyebrow")
-        title = QLabel("Phím tắt")
+        title = QLabel(tr("Phím tắt"))
         title.setObjectName("pageTitle")
         copy = QLabel(
-            "Bấm vào một ô rồi nhấn tổ hợp phím muốn dùng. Phím tắt toàn cục hoạt động cả "
-            "khi đang ở trong game. Nhấn “Lưu và áp dụng” để bật.")
+            tr("Bấm vào một ô rồi nhấn tổ hợp phím muốn dùng. Phím tắt toàn cục hoạt động cả "
+            "khi đang ở trong game. Nhấn “Lưu và áp dụng” để bật."))
         copy.setObjectName("muted")
         copy.setWordWrap(True)
         for widget in (eyebrow, title, copy):
@@ -52,33 +60,33 @@ class EditableHotkeysPage(QWidget):
             "stop": HotkeyEdit(settings.hotkeys.get("stop", "F10")),
             "next": HotkeyEdit(settings.hotkeys.get("next", "F11")),
         }
-        for key, label in (("pause", "Tạm dừng / tiếp tục"), ("stop", "Dừng"),
-                           ("next", "Bài tiếp theo")):
-            self.action_fields[key].setAccessibleName(f"Phím tắt {label}")
+        for key, label in (("pause", tr("Tạm dừng / tiếp tục")), ("stop", tr("Dừng")),
+                           ("next", tr("Bài tiếp theo"))):
+            self.action_fields[key].setAccessibleName(tr("Phím tắt {label}").format(label=label))
             form.addRow(label, self.action_fields[key])
         self.slot_fields: list[tuple[HotkeyEdit, QComboBox]] = []
         for index, key in enumerate(settings.hotkey_keys):
             shortcut = HotkeyEdit(key)
-            shortcut.setAccessibleName(f"Phím tắt ô bài {index + 1}")
+            shortcut.setAccessibleName(tr("Phím tắt ô bài {0}").format(index + 1))
             song = QComboBox()
-            song.setAccessibleName(f"Bài cho ô {index + 1}")
+            song.setAccessibleName(tr("Bài cho ô {0}").format(index + 1))
             selected = settings.song_slots[index] if index < len(settings.song_slots) else None
             self._fill_songs(song, songs, selected)
             row = QHBoxLayout()
             row.addWidget(shortcut, 1)
             row.addWidget(song, 3)
-            form.addRow(f"Ô bài {index + 1}", row)
+            form.addRow(tr("Ô bài {0}").format(index + 1), row)
             self.slot_fields.append((shortcut, song))
         layout.addLayout(form)
         local = QLabel(
-            "Phím tắt trong ứng dụng: Space phát/tạm dừng · Esc dừng · Ctrl+→ bài tiếp · "
+            tr("Phím tắt trong ứng dụng: Space phát/tạm dừng · Esc dừng · Ctrl+→ bài tiếp · "
             "Ctrl+M mini · Ctrl+F tìm · Ctrl+K bảng lệnh · Enter phát bài chọn · "
-            "Ctrl+Enter thêm hàng chờ · Ctrl+O nhập sheet")
+            "Ctrl+Enter thêm hàng chờ · Ctrl+O nhập sheet"))
         local.setObjectName("muted")
         local.setWordWrap(True)
         self.feedback = QLabel("")
         self.feedback.setWordWrap(True)
-        save = QPushButton("Lưu và áp dụng")
+        save = QPushButton(tr("Lưu và áp dụng"))
         save.setProperty("primary", True)
         save.setMinimumHeight(40)
         save.clicked.connect(self._save)
@@ -94,7 +102,7 @@ class EditableHotkeysPage(QWidget):
 
     def _fill_songs(self, combo: QComboBox, songs: list[Song], selected: str | None) -> None:
         combo.clear()
-        combo.addItem("Chưa gán", None)
+        combo.addItem(tr("Chưa gán"), None)
         references = [(song, self._reference(song)) for song in songs]
         for song, reference in references:
             combo.addItem(song.title, reference)
@@ -129,16 +137,17 @@ class EditableHotkeysPage(QWidget):
         values = self.values()
         raw = [values["pause"], values["stop"], values["next"], *values["slot_keys"]]
         if any(not key for key in raw):
-            return False, "Mỗi hành động và ô bài cần một phím tắt."
+            return False, tr("Mỗi hành động và ô bài cần một phím tắt.")
         canonical = [canonical_hotkey(key) for key in raw]
         if len(canonical) != len(set(canonical)):
-            return False, "Một phím đang được dùng cho nhiều hành động."
+            return False, tr("Một phím đang được dùng cho nhiều hành động.")
         if any(key in self.RESERVED for key in canonical):
-            return False, "Một phím được Windows giữ riêng. Hãy chọn tổ hợp khác."
+            return False, tr("Một phím được Windows giữ riêng. Hãy chọn tổ hợp khác.")
         clashes = [key for key in raw if conflicts_with_music_keys(key, self.music_keys)]
         if clashes:
-            return False, (f"Phím {', '.join(clashes)} là phím chơi nhạc trong game; "
-                           "dùng nó làm phím tắt sẽ bị kích hoạt khi bài đang phát.")
+            return False, (tr("Phím {0} là phím chơi nhạc trong game; "
+                           "dùng nó làm phím tắt sẽ bị kích hoạt khi bài đang phát.").format(
+                               ', '.join(clashes)))
         return True, ""
 
     def show_feedback(self, message: str, success: bool) -> None:

@@ -11,6 +11,7 @@ from PySide6.QtNetwork import QLocalServer, QLocalSocket
 from PySide6.QtWidgets import QApplication, QMessageBox, QWidget
 
 from . import __version__, paths
+from .i18n import set_language, tr
 from .logging_config import configure_logging
 
 INSTANCE_SERVER = "sky-macro-player-v3"
@@ -47,7 +48,7 @@ def install_instance_server(window: QWidget, server_name: str | None = None) -> 
     QLocalServer.removeServer(name)
     server = QLocalServer(window)
     if not server.listen(name):
-        raise RuntimeError(f"Không thể mở kênh instance: {server.errorString()}")
+        raise RuntimeError(tr("Không thể mở kênh instance: {0}").format(server.errorString()))
 
     def activate() -> None:
         while server.hasPendingConnections():
@@ -103,19 +104,25 @@ def main(argv: list[str] | None = None) -> int:
     if "--smoke-test" in argv:
         return smoke_test(app)
     app.setQuitOnLastWindowClosed(False)
+    try:
+        from .repositories import RepositoryError, SettingsRepository
+
+        set_language(SettingsRepository(paths.settings_file()).load().language)
+    except (RepositoryError, OSError):
+        pass  # MainWindow reports unreadable settings itself.
     instance_lock = acquire_instance_lock()
     if instance_lock is None:
         if not request_existing_instance():
             QMessageBox.information(
                 None, "Sky Macro Player",
-                "Ứng dụng đang chạy nhưng Windows chưa thể đưa cửa sổ đó lên trước.",
+                tr("Ứng dụng đang chạy nhưng Windows chưa thể đưa cửa sổ đó lên trước."),
             )
         return 0
     from .ui.main_window import MainWindow
 
     window = MainWindow(show_onboarding=True)
     window.closed.connect(app.quit)
-    window._instance_server = install_instance_server(window)
+    window._instance_server = install_instance_server(window)  # type: ignore[attr-defined]
     window.show()
     try:
         return app.exec()

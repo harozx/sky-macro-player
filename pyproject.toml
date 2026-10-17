@@ -32,3 +32,23 @@ include = ["macro_player*"]
 testpaths = ["tests"]
 qt_api = "pyside6"
 addopts = "-ra --basetemp=.test-tmp"
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+extend-exclude = ["build", "dist", "legacy", ".test-tmp"]
+
+[tool.ruff.lint]
+select = ["F", "E", "I", "B"]
+
+[tool.mypy]
+python_version = "3.10"
+files = ["macro_player"]
+
+[[tool.mypy.overrides]]
+module = ["pynput", "pynput.*"]
+ignore_missing_imports = true
+
+[tool.ruff.lint.per-file-ignores]
+# Qt stylesheet rules read best one per line.
+"macro_player/ui/theme.py" = ["E501"]

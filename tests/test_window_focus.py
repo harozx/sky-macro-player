@@ -2,12 +2,14 @@ from dataclasses import replace
 from pathlib import Path
 
 from macro_player.domain import CURRENT_SETTINGS_VERSION, Settings
-from macro_player.repositories import SettingsRepository
-from macro_player.window_focus import (
-    WindowInfo, choose_sky_window, same_window_identity,
-)
 from macro_player.library import Song
+from macro_player.repositories import SettingsRepository
 from macro_player.ui.main_window import MainWindow
+from macro_player.window_focus import (
+    WindowInfo,
+    choose_sky_window,
+    same_window_identity,
+)
 
 
 class FakeFocusService:

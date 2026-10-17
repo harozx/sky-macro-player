@@ -9,8 +9,8 @@ import re
 import sys
 import threading
 from pathlib import Path
+from types import TracebackType
 from typing import Final
-
 
 LOGGER_NAME: Final = "macro_player"
 _HANDLER_MARKER: Final = "_macro_player_rotating_handler"
@@ -121,9 +121,11 @@ def configure_logging(
     return logger
 
 
-def _sys_exception_hook(exc_type: type[BaseException], exc_value: BaseException, traceback: object) -> None:
+def _sys_exception_hook(
+    exc_type: type[BaseException], exc_value: BaseException, traceback: TracebackType | None
+) -> None:
     if issubclass(exc_type, KeyboardInterrupt):
-        _ORIGINAL_SYS_EXCEPTHOOK(exc_type, exc_value, traceback)  # type: ignore[arg-type]
+        _ORIGINAL_SYS_EXCEPTHOOK(exc_type, exc_value, traceback)
         return
     logging.getLogger(f"{LOGGER_NAME}.crash").critical(
         "Unhandled exception in main thread",
@@ -139,7 +141,7 @@ def _thread_exception_hook(args: threading.ExceptHookArgs) -> None:
     logging.getLogger(f"{LOGGER_NAME}.crash").critical(
         "Unhandled exception in worker thread '%s'",
         getattr(args.thread, "name", "unknown"),
-        exc_info=(args.exc_type, args.exc_value, args.exc_traceback),
+        exc_info=(args.exc_type, args.exc_value, args.exc_traceback),  # type: ignore[arg-type]
     )
 
 

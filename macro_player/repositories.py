@@ -11,8 +11,16 @@ from pathlib import Path
 from typing import Any, Iterable, Mapping, Sequence
 
 from .domain import (
-    CURRENT_SETTINGS_VERSION, LAYER_POLICIES, FavoriteEntry, HistoryEntry,
-    LibraryState, NoteEvent, Settings, SheetCompatibility, SongPreference, SongSheet,
+    CURRENT_SETTINGS_VERSION,
+    LAYER_POLICIES,
+    FavoriteEntry,
+    HistoryEntry,
+    LibraryState,
+    NoteEvent,
+    Settings,
+    SheetCompatibility,
+    SongPreference,
+    SongSheet,
 )
 
 
@@ -44,7 +52,11 @@ def _read_json(path: Path) -> Any:
     except OSError as exc:
         raise JsonDataError(f"Could not read '{path}': {exc}") from exc
 
-    encodings = ("utf-16", "utf-8-sig") if payload.startswith((b"\xff\xfe", b"\xfe\xff")) else ("utf-8-sig", "utf-16")
+    encodings = (
+        ("utf-16", "utf-8-sig")
+        if payload.startswith((b"\xff\xfe", b"\xfe\xff"))
+        else ("utf-8-sig", "utf-16")
+    )
     decode_error: UnicodeDecodeError | None = None
     for encoding in encodings:
         try:
@@ -162,7 +174,9 @@ class SettingsRepository:
             raise ValidationError("settings root must be a JSON object")
 
         version = raw.get("schema_version", raw.get("version", CURRENT_SETTINGS_VERSION))
-        version = _strict_int(version, "schema_version", minimum=0, maximum=CURRENT_SETTINGS_VERSION)
+        version = _strict_int(
+            version, "schema_version", minimum=0, maximum=CURRENT_SETTINGS_VERSION
+        )
 
         countdown = raw.get("countdown_seconds", raw.get("countdown", 3))
         opacity = raw.get("window_opacity", raw.get("opacity", raw.get("alpha", 1.0)))
@@ -185,6 +199,7 @@ class SettingsRepository:
         # Users upgrading from v3 already know the app; skip the first-run guide.
         first_run_completed = raw.get("first_run_completed", version < 4)
         check_updates = raw.get("check_updates", False)
+        language = raw.get("language", "vi")
 
         if not isinstance(hotkeys, Mapping):
             raise ValidationError("must be a JSON object", field="hotkeys")
@@ -213,7 +228,9 @@ class SettingsRepository:
         checked_slots: list[str | None] = []
         for index, song in enumerate(song_slots):
             if song is not None and (not isinstance(song, str) or not song.strip()):
-                raise ValidationError("must be null or a non-empty string", field=f"song_slots[{index}]")
+                raise ValidationError(
+                    "must be null or a non-empty string", field=f"song_slots[{index}]"
+                )
             checked_slots.append(song.strip() if isinstance(song, str) else None)
         if len(checked_slots) != len(checked_keys):
             raise ValidationError("must have the same length as hotkey_keys", field="song_slots")
@@ -227,18 +244,24 @@ class SettingsRepository:
         if checked_layout and (len(checked_layout) != 15 or len(set(checked_layout)) != 15):
             raise ValidationError("must contain 15 distinct keys", field="custom_layout_keys")
         if keyboard_layout == "custom" and not checked_layout:
-            raise ValidationError("custom layout requires custom_layout_keys", field="keyboard_layout")
+            raise ValidationError(
+                "custom layout requires custom_layout_keys", field="keyboard_layout"
+            )
         if focus_target_exe is not None and (
             not isinstance(focus_target_exe, str) or not focus_target_exe.strip()
             or "/" in focus_target_exe or "\\" in focus_target_exe
         ):
-            raise ValidationError("must be null or an executable file name", field="focus_target_exe")
+            raise ValidationError(
+                "must be null or an executable file name", field="focus_target_exe"
+            )
         checked_position = None
         if mini_position is not None:
             if (not isinstance(mini_position, list) or len(mini_position) != 2
                     or any(isinstance(v, bool) or not isinstance(v, int) for v in mini_position)):
                 raise ValidationError("must be null or [x, y]", field="mini_position")
             checked_position = (mini_position[0], mini_position[1])
+        if language not in {"vi", "en"}:
+            raise ValidationError("must be 'vi' or 'en'", field="language")
         if not isinstance(pause_hotkey, str) or not pause_hotkey.strip():
             raise ValidationError("must be a non-empty string", field="pause_hotkey")
 
@@ -263,6 +286,7 @@ class SettingsRepository:
             mini_position=checked_position,
             first_run_completed=_strict_bool(first_run_completed, "first_run_completed"),
             check_updates=_strict_bool(check_updates, "check_updates"),
+            language=language,
         )
 
 
@@ -272,7 +296,10 @@ class _SheetPathPolicy:
 
     def resolve(self, path: str | Path) -> Path:
         requested = Path(path)
-        candidate = requested.resolve() if requested.is_absolute() else (self.root / requested).resolve()
+        candidate = (
+            requested.resolve() if requested.is_absolute()
+            else (self.root / requested).resolve()
+        )
         try:
             candidate.relative_to(self.root)
         except ValueError as exc:
@@ -316,6 +343,9 @@ class FavoritesRepository:
         normalized: list[FavoriteEntry] = []
         seen: set[str] = set()
         for index, entry in enumerate(entries):
+            source_path: Any
+            name: Any
+            sheet_type: Any
             if isinstance(entry, str):
                 source_path = entry
                 name = Path(entry).name
@@ -325,18 +355,28 @@ class FavoritesRepository:
                 name = entry.get("name")
                 sheet_type = entry.get("type", "JSON")
                 if not isinstance(name, str) or not name.strip():
-                    raise ValidationError("must be a non-empty string", field=f"favorites[{index}].name")
+                    raise ValidationError(
+                        "must be a non-empty string", field=f"favorites[{index}].name"
+                    )
                 if not isinstance(sheet_type, str) or not sheet_type.strip():
-                    raise ValidationError("must be a non-empty string", field=f"favorites[{index}].type")
+                    raise ValidationError(
+                        "must be a non-empty string", field=f"favorites[{index}].type"
+                    )
             else:
-                raise ValidationError("must be a path string or JSON object", field=f"favorites[{index}]")
+                raise ValidationError(
+                    "must be a path string or JSON object", field=f"favorites[{index}]"
+                )
             if not isinstance(source_path, str) or not source_path.strip():
-                raise ValidationError("must be a non-empty path string", field=f"favorites[{index}].path")
+                raise ValidationError(
+                    "must be a non-empty path string", field=f"favorites[{index}].path"
+                )
             relative = self._paths.relative(source_path.strip())
             key = relative.casefold()
             if key not in seen:
                 seen.add(key)
-                normalized.append(FavoriteEntry(name=name.strip(), path=relative, sheet_type=sheet_type.strip()))
+                normalized.append(
+                    FavoriteEntry(name=name.strip(), path=relative, sheet_type=sheet_type.strip())
+                )
         return tuple(normalized)
 
     def save(self, favorites: Iterable[FavoriteEntry | str | Path]) -> None:
@@ -347,7 +387,9 @@ class FavoritesRepository:
                 relative = self._paths.relative(entry.path)
                 favorite = FavoriteEntry(entry.name.strip(), relative, entry.sheet_type.strip())
                 if not favorite.name or not favorite.sheet_type:
-                    raise ValidationError("favorite name and type must not be empty", field="favorites")
+                    raise ValidationError(
+                        "favorite name and type must not be empty", field="favorites"
+                    )
             else:
                 relative = self._paths.relative(entry)
                 favorite = FavoriteEntry(Path(relative).name, relative)
@@ -445,9 +487,13 @@ class SheetRepository:
                 raise ValidationError("must be a number", field=f"{prefix}.time")
             event_time = float(timestamp)
             if not math.isfinite(event_time) or event_time < 0:
-                raise ValidationError("must be a finite non-negative number", field=f"{prefix}.time")
+                raise ValidationError(
+                    "must be a finite non-negative number", field=f"{prefix}.time"
+                )
             if event_time < previous_time:
-                raise ValidationError("must not be earlier than the preceding note", field=f"{prefix}.time")
+                raise ValidationError(
+                    "must not be earlier than the preceding note", field=f"{prefix}.time"
+                )
             previous_time = event_time
 
             key_value = item.get("key")
@@ -468,7 +514,10 @@ class SheetRepository:
                 checked_keys.append(key.strip())
             parsed_notes.append(NoteEvent(time=event_time, keys=tuple(checked_keys)))
 
-        metadata = {key: value for key, value in raw.items() if key not in {"songNotes", "name", "title"}}
+        metadata = {
+            key: value for key, value in raw.items()
+            if key not in {"songNotes", "name", "title"}
+        }
         return SongSheet(
             title=title_value.strip(),
             notes=tuple(parsed_notes),

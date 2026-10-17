@@ -45,6 +45,12 @@ jobs:
       - name: Compile Python sources
         run: python -m compileall -q macro_core.py gui_qt.py macro_player tests
 
+      - name: Lint
+        run: python -m ruff check .
+
+      - name: Type check
+        run: python -m mypy macro_player
+
       - name: Run tests
         run: python -m pytest
 
