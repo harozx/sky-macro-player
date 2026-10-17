@@ -29,6 +29,7 @@ from ..hotkeys import (
     DefaultHotkeyService, DisabledHotkeyService, GlobalHotkeyService, with_legacy_defaults,
 )
 from ..library import Library, Song
+from ..sheet_tools import save_new_sheet, to_sheet_payload
 from ..playback import PlaybackController, load_song_events
 from ..repositories import LibraryStateRepository, RepositoryError, SettingsRepository
 from ..updates import UpdateChecker
@@ -42,6 +43,7 @@ from .library_page import LibraryPage
 from .mini import STATE_LABELS, MiniOverlay
 from .queue_panel import QueuePanel
 from .settings_page import SettingsPage
+from .sheet_editor import SheetEditorDialog
 from .sound import PreviewSynth
 from .theme import STYLE
 from .tray import TrayController, app_icon
@@ -107,6 +109,9 @@ class MainWindow(QMainWindow):
         self._session_preview = False
         self._session_from_queue = False
         self.cursor: tuple[str, int] | None = None
+        self._preview_override: tuple[Song, tuple] | None = None
+        self._restore_countdown: int | None = None
+        self.sheet_editor: SheetEditorDialog | None = None
         self.loop_marks: dict[str, int | None] = {"song": None, "a": None, "b": None}
         self._mini_position = self.settings.mini_position
         self._tray_hint_shown = False
@@ -268,6 +273,7 @@ class MainWindow(QMainWindow):
         page.play_all_requested.connect(self.play_all)
         page.import_requested.connect(self.choose_import_files)
         page.layer_policy_changed.connect(self.set_layer_policy)
+        page.edit_requested.connect(self.open_sheet_editor)
         page.list.currentItemChanged.connect(lambda *_: self._selection_changed())
         self.queue.play_requested.connect(self._play_queued_song)
         self.queue.save_playlist_requested.connect(self.save_playlist)
@@ -425,6 +431,9 @@ class MainWindow(QMainWindow):
         return None
 
     def _load_for_playback(self, song: Song):
+        override = self._preview_override
+        if override is not None and override[0] is song:
+            return override[1]
         relative = self._relative_or_none(song)
         if relative is None:
             return load_song_events(song)
@@ -644,12 +653,16 @@ class MainWindow(QMainWindow):
     @Slot(int)
     def _progress_status(self, elapsed: int) -> None:
         self.dock.runway.set_progress(elapsed)
+        if self.sheet_editor is not None and self._preview_override is not None:
+            self.sheet_editor.set_progress(elapsed)
         self.mini.set_progress(elapsed, self.dock.runway.duration)
 
     @Slot(list)
     def _keys_pressed(self, keys: list) -> None:
         if self.key_strip.isVisible():
             self.key_grid.flash(keys)
+        if self.sheet_editor is not None and self._preview_override is not None:
+            self.sheet_editor.flash_keys(keys)
         if self._session_preview and self.settings.preview_sound:
             labels = list(self._key_map().values())
             self.synth.play_indices([labels.index(key) for key in keys if key in labels])
@@ -678,6 +691,11 @@ class MainWindow(QMainWindow):
         self._set_playback_guard(None)
         self.dock.runway.reset()
         self.key_grid.clear()
+        if self._preview_override is not None:
+            self._preview_override = None
+            if self._restore_countdown is not None:
+                self.controller.countdown = self._restore_countdown
+                self._restore_countdown = None
         from_queue, self._session_from_queue = self._session_from_queue, False
         if self._closing:
             self.pending_song = None
@@ -848,6 +866,94 @@ class MainWindow(QMainWindow):
             self.dock.set_status(
                 f"“{song.title}”: {'đã phát được' if refreshed.playable else 'vẫn bị chặn'}.",
                 "success" if refreshed.playable else "warning")
+
+    # -------------------------------------------------------- sheet editor
+    def open_sheet_editor(self, song: Song | None = None) -> SheetEditorDialog | None:
+        song = song or self.library_page.selected_song()
+        relative = self._relative_or_none(song) if song is not None else None
+        if song is None or relative is None:
+            self._show_error("Hãy chọn một bài trong thư viện để chỉnh.")
+            return None
+        try:
+            sheet = self.library.load(relative)
+        except RepositoryError as exc:
+            self._show_error(f"Không đọc được sheet để chỉnh: {exc}")
+            return None
+        events = [(note.time, tuple(note.keys)) for note in sheet.notes]
+        dialog = SheetEditorDialog(song, events, list(self._key_map().values()), self)
+        dialog.preview_requested.connect(self.preview_events)
+        dialog.stop_preview_requested.connect(self.stop_playback)
+        dialog.save_requested.connect(
+            lambda name, result: self.save_edited_sheet(name, result, song, dialog))
+        dialog.finished.connect(lambda _: self._close_sheet_editor(dialog))
+        self.sheet_editor = dialog
+        dialog.open()
+        return dialog
+
+    def _close_sheet_editor(self, dialog: SheetEditorDialog) -> None:
+        if self._preview_override is not None:
+            self.stop_playback()
+        if self.sheet_editor is dialog:
+            self.sheet_editor = None
+
+    def preview_events(self, events: list, title: str) -> bool:
+        """Play edited events on the virtual keyboard only; never sends OS keys."""
+        if self._closing:
+            return False
+        if self.controller.busy:
+            self.dock.set_status("Hãy dừng bài đang phát trước khi nghe thử.", "warning")
+            return False
+        key_map = self._key_map()
+        missing = sorted({key for _, keys in events for key in keys if key not in key_map})
+        if missing:
+            message = f"Bản chỉnh còn phím chưa hỗ trợ: {', '.join(missing[:5])}."
+            self._show_error(message)
+            if self.sheet_editor is not None:
+                self.sheet_editor.show_error(message)
+            return False
+        if not events:
+            return False
+        moments = sorted({int(time) for time, _ in events})
+        song = Song(self.library.root / "__preview__.json", title or "Bản chỉnh", relative="")
+        self._preview_override = (song, (list(events), moments, moments[-1]))
+        self._restore_countdown = self.controller.countdown
+        self.controller.countdown = 0
+        self.pending_song = None
+        self._set_playback_guard(None)
+        self._configure_session(song, True)
+        for name, value in (("start_ms", 0), ("loop_range", None)):
+            try:
+                setattr(self.controller, name, value)
+            except AttributeError:
+                pass
+        if not self.controller.play(song):
+            self._preview_override = None
+            self.controller.countdown = self._restore_countdown
+            self._restore_countdown = None
+            return False
+        return True
+
+    def save_edited_sheet(self, name: str, events: list, source: Song,
+                          dialog: SheetEditorDialog | None = None) -> Path | None:
+        if not events:
+            return None
+        payload = to_sheet_payload(name, events, source=source.identity)
+        try:
+            path = save_new_sheet(self.library.root, name, payload)
+        except OSError as exc:
+            message = f"Không thể lưu bản chỉnh: {exc}"
+            self._show_error(message)
+            if dialog is not None:
+                dialog.show_error(message)
+            return None
+        self.refresh_library()
+        created = self._song_for(self.library.relative_id(path))
+        if created is not None:
+            self.library_page.select_song(created)
+        self.dock.set_status(f"Đã lưu bản chỉnh “{path.name}”.", "success")
+        if dialog is not None:
+            dialog.show_saved(path.name)
+        return path
 
     # ------------------------------------------------------------- import
     def choose_import_files(self) -> None:
@@ -1238,6 +1344,7 @@ class MainWindow(QMainWindow):
             ("Bài tiếp theo", self.play_next),
             ("Mini player", self.toggle_mini),
             ("Nhập sheet", self.choose_import_files),
+            ("Chỉnh sheet bài đang chọn", self.open_sheet_editor),
             ("Phát tất cả bài đang hiển thị",
              lambda: self.play_all(self.library_page.visible_songs())),
             ("Trộn bài đang hiển thị",

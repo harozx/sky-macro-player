@@ -23,6 +23,13 @@ the game loses focus.
   use **Nhập sheet…** (Ctrl+O). Each file is validated first; duplicates can be
   renamed, overwritten or skipped. The library refreshes when the folder
   changes.
+- **Sheet editor (Chỉnh sheet…):** merge 2Key/3Key layers, cut a section,
+  snap notes to a beat grid (the grid is detected automatically, including
+  eighth/sixteenth subdivisions), transpose by scale steps (notes beyond the 15
+  keys fold by an octave), and change tempo. A live summary, Note Runway and
+  key grid preview the result, **Nghe thử** plays it on the virtual keyboard,
+  and **Lưu thành bản mới** always writes a new sheet; the original is never
+  modified.
 - **2Key/3Key sheets:** choose per song to merge every layer onto the 15 keys,
   play layer 1 only, or keep it blocked. Nothing is changed silently.
 - **Focus lock:** playback only types into the game window. Sky is detected by
@@ -138,6 +145,8 @@ tag publishes both files to a GitHub release.
 - `macro_player/engine.py`: deterministic keyboard playback (speed, sections,
   focus guard, guaranteed key release). `macro_core.py` re-exports it.
 - `macro_player/library.py`: sheet discovery, metadata, layer policies, import.
+- `macro_player/sheet_tools.py`: pure sheet edits (layers, cut, grid, transpose,
+  tempo) and saving new sheets.
 - `macro_player/playback.py`: one Qt controller and worker thread per session.
 - `macro_player/hotkeys.py`, `window_focus.py`: global hotkeys and focus lock.
 - `macro_player/domain.py`, `repositories.py`, `paths.py`: models, validated
