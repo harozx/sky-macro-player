@@ -135,6 +135,7 @@ class MainWindow(QMainWindow):
         self._restore_countdown: int | None = None
         self.sheet_editor: SheetEditorDialog | TextSheetDialog | None = None
         self._last_import: list = []
+        self._last_play_failure: str | None = None
         self.loop_marks: dict[str, Any] = {"song": None, "a": None, "b": None}
         self._mini_position = self.settings.mini_position
         self._tray_hint_shown = False
@@ -294,7 +295,7 @@ class MainWindow(QMainWindow):
     def _connect(self) -> None:
         page = self.library_page
         page.play_requested.connect(self.play_song)
-        page.queue_requested.connect(self.queue.add_song)
+        page.queue_requested.connect(self.add_to_queue)
         page.favorite_requested.connect(self.toggle_favorite)
         page.play_all_requested.connect(self.play_all)
         page.import_requested.connect(self.choose_import_files)
@@ -496,10 +497,13 @@ class MainWindow(QMainWindow):
     # ----------------------------------------------------------- playback
     @Slot(object)
     def play_song(self, song: Song) -> bool:
+        self._last_play_failure = None
         if self._closing:
+            self._last_play_failure = "closing"
             return False
         error = self._compatibility_error(song)
         if error:
+            self._last_play_failure = "unplayable"
             self._show_error(tr("Bài “{title}” chưa thể phát: {error}").format(
                 title=song.title, error=error))
             return False
@@ -508,10 +512,12 @@ class MainWindow(QMainWindow):
             if self.settings.focus_lock_enabled and not preview:
                 window = self._locate_sky_window()
                 if window is None:
+                    self._last_play_failure = "focus"
                     self._show_error(
                         tr("Không tìm thấy cửa sổ game. Hãy mở game rồi nhấn Phát lại."))
                     return False
                 if not self.focus_service.activate(window):
+                    self._last_play_failure = "focus"
                     self._show_error(
                         tr("Windows chưa cho phép chuyển focus sang game. Hãy click vào game "
                         "rồi nhấn Phát."))
@@ -570,12 +576,7 @@ class MainWindow(QMainWindow):
         self.queue.replace_songs(playable)
         if not self.queue.isVisible():
             self.queue_toggle.setChecked(True)
-        first = playable[0]
-        if self.play_song(first):
-            self._session_from_queue = True
-            self.queue.remove_first_if(first)
-            return True
-        return False
+        return self._start_from_queue()
 
     def toggle_play(self) -> None:
         if self._closing:
@@ -594,24 +595,18 @@ class MainWindow(QMainWindow):
             self.controller.toggle_pause()
             return
         song = self.library_page.selected_song() or self.current_song
-        queued = False
-        if song is None:
-            song = self.queue.peek_next()
-            queued = song is not None
-        if song and self.play_song(song) and queued:
-            self._session_from_queue = True
-            self.queue.remove_first_if(song)
+        if song is not None:
+            self.play_song(song)
+        elif self.queue.peek_next() is not None:
+            self._start_from_queue()
 
     def play_next(self) -> None:
         if self._closing:
             return
-        next_song = self.queue.peek_next()
-        if next_song is None:
+        if self.queue.peek_next() is None:
             self.dock.set_status(tr("Hàng chờ đang trống."), "warning")
             return
-        if self.play_song(next_song):
-            self._session_from_queue = True
-            self.queue.remove_first_if(next_song)
+        self._start_from_queue()
 
     def stop_playback(self) -> None:
         """Route Stop to the controller currently owned by the window."""
@@ -624,10 +619,48 @@ class MainWindow(QMainWindow):
             self.play_song(song)
 
     def _play_queue_if_current(self, song: Song, generation: int) -> None:
-        if (not self._closing and generation == self._command_generation
-                and self.play_song(song)):
-            self._session_from_queue = True
+        if not self._closing and generation == self._command_generation:
+            self._start_from_queue()
+
+    def _start_from_queue(self) -> bool:
+        """Play the first queued song that can play; drop the ones that never can.
+
+        A song that is unplayable (broken sheet, unsupported keys) is removed and
+        reported in the queue panel. A temporary failure such as a missing game
+        window keeps the queue intact so the player can retry.
+        """
+        skipped: list[str] = []
+        started = False
+        while (song := self.queue.peek_next()) is not None:
+            if self.play_song(song):
+                self._session_from_queue = True
+                self.queue.remove_first_if(song)
+                started = True
+                break
+            if self._last_play_failure != "unplayable":
+                break
             self.queue.remove_first_if(song)
+            skipped.append(song.title)
+        if skipped:
+            names = ", ".join(skipped[:3]) + ("..." if len(skipped) > 3 else "")
+            self.queue.show_note(tr("Đã bỏ qua {count} bài chưa phát được: {names}").format(
+                count=len(skipped), names=names))
+            if not started and self.queue.peek_next() is None:
+                self._show_error(tr("Hàng chờ không còn bài nào phát được. Đã bỏ qua: "
+                                    "{names}").format(names=names))
+        return started
+
+    @Slot(object)
+    def add_to_queue(self, song: Song) -> bool:
+        if not song.playable:
+            hint = (tr(" Chọn “Gộp mọi lớp về 15 phím” trong chi tiết bài để phát được.")
+                    if song.layered else "")
+            self._show_error(tr("Bài “{title}” chưa phát được nên chưa thêm vào hàng chờ."
+                                ).format(title=song.title) + hint)
+            return False
+        self.queue.add_song(song)
+        self.dock.set_status(tr("Đã thêm “{title}” vào hàng chờ.").format(title=song.title))
+        return True
 
     @Slot(object)
     def _song_changed(self, song: Song) -> None:

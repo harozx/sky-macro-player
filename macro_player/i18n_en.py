@@ -732,4 +732,14 @@ EN: dict[str, str] = {
         '{count} symbols per beat',
     '… và {count} lỗi khác':
         '… and {count} more problems',
+    'Đã bỏ qua {count} bài chưa phát được: {names}':
+        'Skipped {count} songs that cannot play: {names}',
+    'Hàng chờ không còn bài nào phát được. Đã bỏ qua: {names}':
+        'No playable songs left in the queue. Skipped: {names}',
+    ' Chọn “Gộp mọi lớp về 15 phím” trong chi tiết bài để phát được.':
+        ' Choose “Merge every layer onto the 15 keys” in the song details to play it.',
+    'Bài “{title}” chưa phát được nên chưa thêm vào hàng chờ.':
+        '“{title}” cannot play yet, so it was not added to the queue.',
+    'Đã thêm “{title}” vào hàng chờ.':
+        'Added “{title}” to the queue.',
 }

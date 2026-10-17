@@ -48,6 +48,10 @@ class QueuePanel(QWidget):
         self.hint = QLabel(tr(EMPTY_HINT))
         self.hint.setObjectName("muted")
         self.hint.setWordWrap(True)
+        self.note = QLabel()
+        self.note.setWordWrap(True)
+        self.note.setStyleSheet(f"color: {Tokens.APRICOT};")
+        self.note.hide()
         self.list = QListWidget()
         self.list.setAccessibleName(tr("Hàng chờ phát nhạc"))
         self.list.setDragDropMode(QListWidget.DragDropMode.InternalMove)
@@ -73,7 +77,7 @@ class QueuePanel(QWidget):
         remove = QPushButton(tr("Bỏ bài đã chọn"))
         remove.setProperty("danger", True)
         widget: QWidget
-        for widget in (eyebrow, title, self.hint, self.repeat_button):
+        for widget in (eyebrow, title, self.hint, self.note, self.repeat_button):
             layout.addWidget(widget)
         layout.addLayout(tools)
         for widget in (self.list, self.undo_button, remove):
@@ -149,9 +153,15 @@ class QueuePanel(QWidget):
         self._undo_snapshot = self.songs()
         self.undo_button.setVisible(bool(self._undo_snapshot))
 
+    def show_note(self, text: str) -> None:
+        """A message about the queue (for example skipped songs) until it changes."""
+        self.note.setText(text)
+        self.note.setVisible(bool(text))
+
     def replace_songs(self, songs: list[Song]) -> None:
         """Replace the whole queue; the previous queue can be restored once."""
         self._remember_for_undo()
+        self.show_note("")
         self._set_songs(songs)
 
     def shuffle(self, rng: random.Random | None = None) -> None:
@@ -175,6 +185,7 @@ class QueuePanel(QWidget):
         self.undo_button.hide()
 
     def add_song(self, song: Song) -> None:
+        self.show_note("")
         self._append(song)
         self._sync_hint()
 

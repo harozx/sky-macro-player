@@ -406,3 +406,73 @@ def test_library_summary_and_test_window(window):
 
 def test_default_settings_object_is_unchanged_by_window(window):
     assert Settings().language == "vi"
+
+
+# ------------------------------------------------- queue with unplayable songs
+@pytest.fixture
+def mixed(qtbot, tmp_path):
+    root = tmp_path / "mixed"
+    root.mkdir()
+    for name, key in (("1-ok.json", "1Key0"), ("2-layered.json", "2Key3"),
+                      ("3-ok.json", "1Key1"), ("4-layered.json", "3Key1")):
+        (root / name).write_text(json.dumps({"name": name[:-5], "songNotes": [
+            {"time": 0, "key": key}, {"time": 500, "key": key}]}), encoding="utf-8")
+    win = MainWindow(enable_global_hotkeys=False, use_tray=False,
+                     library=Library(root, tmp_path / "fav.json"))
+    qtbot.addWidget(win)
+    win.settings_repository = SettingsRepository(tmp_path / "settings.json")
+    win.state_repository = LibraryStateRepository(tmp_path / "state.json")
+    win.library_state = LibraryState()
+    win.settings = replace(win.settings, focus_lock_enabled=False)
+    win.controller = FakeController()
+    songs = {song.title: song for song in win.songs}
+    return win, songs
+
+
+def test_finished_song_skips_unplayable_queue_items(mixed, qtbot):
+    win, songs = mixed
+    for title in ("2-layered", "3-ok", "4-layered"):
+        win.queue._append(songs[title])
+    win.current_song = songs["1-ok"]
+    win._playback_finished(True)
+    qtbot.waitUntil(lambda: win.controller.played == [songs["3-ok"]], timeout=1000)
+    assert [song.title for song in win.queue.songs()] == ["4-layered"]
+    assert "2-layered" in win.queue.note.text() and win.queue.note.isVisibleTo(win.queue)
+
+
+def test_next_reports_when_only_unplayable_songs_remain(mixed):
+    win, songs = mixed
+    win.queue._append(songs["2-layered"])
+    win.queue._append(songs["4-layered"])
+    win.play_next()
+    assert win.controller.played == [] and win.queue.songs() == []
+    assert "không còn bài nào phát được" in win.dock.status.text()
+
+
+def test_missing_game_window_keeps_the_queue(mixed):
+    win, songs = mixed
+
+    class NoGame:
+        def find_sky_window(self):
+            return None
+
+    win.settings = replace(win.settings, focus_lock_enabled=True)
+    win.focus_service = NoGame()
+    win.queue._append(songs["1-ok"])
+    win.play_next()
+    assert [song.title for song in win.queue.songs()] == ["1-ok"]
+
+
+def test_unplayable_song_is_not_added_to_queue(mixed):
+    win, songs = mixed
+    assert not win.add_to_queue(songs["2-layered"])
+    assert win.queue.songs() == [] and "Gộp mọi lớp" in win.dock.status.text()
+    assert win.add_to_queue(songs["1-ok"])
+    assert [song.title for song in win.queue.songs()] == ["1-ok"]
+
+
+def test_play_all_starts_with_first_playable(mixed):
+    win, songs = mixed
+    assert win.play_all(list(songs.values()))
+    assert win.controller.played == [songs["1-ok"]]
+    assert [song.title for song in win.queue.songs()] == ["3-ok"]
