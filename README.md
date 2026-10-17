@@ -14,7 +14,9 @@ the game loses focus.
 - **Song details:** length, note count, notes per second with an
   Easy / Medium / Hard hint, and how many times you played it.
 - **Queue and playlists:** play all, shuffle, repeat queue or one song,
-  clear with undo, and save the queue as a named playlist.
+  clear with undo, and save the queue as a named playlist. Only the first song
+  counts down; later songs follow after a short gap (0–10 s, default 1 s), and
+  songs that cannot play are skipped instead of stopping the queue.
 - **Practice tools:** live speed 0.5×–1.5× (remembered per song), start from
   any point by clicking the Note Runway, and loop an A–B section.
 - **Preview mode:** play a sheet on a virtual 15-key grid with generated

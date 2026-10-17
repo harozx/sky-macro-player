@@ -16,6 +16,7 @@ from PySide6.QtWidgets import (
     QScrollArea,
     QSizePolicy,
     QSlider,
+    QSpinBox,
     QVBoxLayout,
     QWidget,
 )
@@ -44,6 +45,7 @@ class SettingsPage(QWidget):
     layout_changed = Signal(str)
     custom_layout_saved = Signal(str)
     countdown_changed = Signal(int)
+    queue_gap_changed = Signal(int)
     minimize_to_tray_changed = Signal(bool)
     preview_sound_changed = Signal(bool)
     test_window_requested = Signal()
@@ -105,6 +107,15 @@ class SettingsPage(QWidget):
         form.addRow(tr("Bộ phím trong game"), self.key_layout)
         form.addRow(tr("Phím tùy chỉnh"), custom_row)
         form.addRow(tr("Đếm ngược"), countdown_row)
+        self.queue_gap = QSpinBox()
+        self.queue_gap.setRange(0, 10)
+        self.queue_gap.setValue(1)
+        self.queue_gap.setSuffix(tr(" giây"))
+        self.queue_gap.setAccessibleName(tr("Nghỉ giữa các bài trong hàng chờ"))
+        self.queue_gap.setToolTip(tr(
+            "Khi hàng chờ tự chuyển bài hoặc lặp bài, chỉ nghỉ ngần này thay vì đếm ngược. "
+            "Bài đầu tiên vẫn đếm ngược để bạn kịp vào game."))
+        form.addRow(tr("Nghỉ giữa các bài"), self.queue_gap)
         section.addLayout(form)
         layout.addWidget(frame)
 
@@ -181,6 +192,7 @@ class SettingsPage(QWidget):
         self.custom_apply.clicked.connect(
             lambda: self.custom_layout_saved.emit(self.custom_keys.text()))
         self.countdown.valueChanged.connect(self._countdown)
+        self.queue_gap.valueChanged.connect(self.queue_gap_changed)
         self.minimize_to_tray.toggled.connect(self.minimize_to_tray_changed)
         self.preview_sound.toggled.connect(self.preview_sound_changed)
         self.detect_button.clicked.connect(self.test_window_requested)

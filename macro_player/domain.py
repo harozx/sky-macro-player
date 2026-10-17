@@ -38,6 +38,7 @@ class Settings:
     first_run_completed: bool = False
     check_updates: bool = False
     language: str = "vi"
+    queue_gap_seconds: int = 1
 
     def __post_init__(self) -> None:
         # Prevent callers from mutating a frozen Settings through its mapping.
@@ -66,6 +67,7 @@ class Settings:
             "first_run_completed": self.first_run_completed,
             "check_updates": self.check_updates,
             "language": self.language,
+            "queue_gap_seconds": self.queue_gap_seconds,
         }
 
 

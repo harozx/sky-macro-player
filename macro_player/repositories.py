@@ -200,6 +200,7 @@ class SettingsRepository:
         first_run_completed = raw.get("first_run_completed", version < 4)
         check_updates = raw.get("check_updates", False)
         language = raw.get("language", "vi")
+        queue_gap = raw.get("queue_gap_seconds", 1)
 
         if not isinstance(hotkeys, Mapping):
             raise ValidationError("must be a JSON object", field="hotkeys")
@@ -287,6 +288,7 @@ class SettingsRepository:
             first_run_completed=_strict_bool(first_run_completed, "first_run_completed"),
             check_updates=_strict_bool(check_updates, "check_updates"),
             language=language,
+            queue_gap_seconds=_strict_int(queue_gap, "queue_gap_seconds", minimum=0, maximum=10),
         )
 
 

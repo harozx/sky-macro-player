@@ -476,3 +476,40 @@ def test_play_all_starts_with_first_playable(mixed):
     assert win.play_all(list(songs.values()))
     assert win.controller.played == [songs["1-ok"]]
     assert [song.title for song in win.queue.songs()] == ["3-ok"]
+
+
+# ------------------------------------------------------ gap between songs
+def test_queue_advance_uses_short_gap_instead_of_countdown(mixed, qtbot):
+    win, songs = mixed
+    win.settings = replace(win.settings, countdown_seconds=5, queue_gap_seconds=1)
+    win.queue._append(songs["3-ok"])
+    win.play_song(songs["1-ok"])
+    assert win.controller.countdown == 5
+    win.current_song = songs["1-ok"]
+    win._playback_finished(True)
+    qtbot.waitUntil(lambda: songs["3-ok"] in win.controller.played, timeout=1000)
+    assert win.controller.countdown == 1 and win._session_auto
+    win._countdown_status(1)
+    assert "Bài tiếp theo sau 1 giây" in win.dock.status.text()
+    win.play_song(songs["1-ok"])
+    assert win.controller.countdown == 5 and not win._session_auto
+
+
+def test_repeat_one_uses_the_gap(mixed, qtbot):
+    win, songs = mixed
+    win.settings = replace(win.settings, countdown_seconds=4, queue_gap_seconds=0)
+    win.queue.set_repeat_mode("one")
+    win.current_song = songs["1-ok"]
+    win._playback_finished(True)
+    qtbot.waitUntil(lambda: win.controller.played == [songs["1-ok"]], timeout=1000)
+    assert win.controller.countdown == 0
+
+
+def test_gap_setting_saves_and_validates(window, tmp_path):
+    window.settings_page.queue_gap.setValue(3)
+    assert window.settings_repository.load().queue_gap_seconds == 3
+    bad = tmp_path / "bad.json"
+    bad.write_text('{"queue_gap_seconds": 99}', encoding="utf-8")
+    from macro_player.repositories import ValidationError
+    with pytest.raises(ValidationError):
+        SettingsRepository(bad).load()

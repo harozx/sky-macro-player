@@ -136,6 +136,8 @@ class MainWindow(QMainWindow):
         self.sheet_editor: SheetEditorDialog | TextSheetDialog | None = None
         self._last_import: list = []
         self._last_play_failure: str | None = None
+        self._auto_advance = False
+        self._session_auto = False
         self.loop_marks: dict[str, Any] = {"song": None, "a": None, "b": None}
         self._mini_position = self.settings.mini_position
         self._tray_hint_shown = False
@@ -346,6 +348,7 @@ class MainWindow(QMainWindow):
         sp.layout_changed.connect(self._set_layout)
         sp.custom_layout_saved.connect(self._save_custom_layout)
         sp.countdown_changed.connect(self._set_countdown)
+        sp.queue_gap_changed.connect(lambda value: self._save_or_restore(queue_gap_seconds=value))
         sp.always_on_top.toggled.connect(self._set_mini_on_top)
         sp.minimize_to_tray_changed.connect(
             lambda value: self._save_or_restore(minimize_to_tray=value))
@@ -554,6 +557,14 @@ class MainWindow(QMainWindow):
         if callable(setter):
             setter(self.settings.keyboard_layout, self._key_map())
         self._session_preview = preview
+        self._session_auto = self._auto_advance
+        if self._preview_override is None:
+            gap = self.settings.queue_gap_seconds
+            try:
+                controller.countdown = (gap if self._auto_advance
+                                        else self.settings.countdown_seconds)
+            except AttributeError:
+                pass
         self.dock.set_speed(speed)
         self.dock.runway.set_speed(speed)
 
@@ -620,7 +631,20 @@ class MainWindow(QMainWindow):
 
     def _play_queue_if_current(self, song: Song, generation: int) -> None:
         if not self._closing and generation == self._command_generation:
-            self._start_from_queue()
+            self._auto_advance = True
+            try:
+                self._start_from_queue()
+            finally:
+                self._auto_advance = False
+
+    def _replay_if_current(self, song: Song, generation: int) -> None:
+        """Repeat-one: start the song again after the short between-songs gap."""
+        if not self._closing and generation == self._command_generation:
+            self._auto_advance = True
+            try:
+                self.play_song(song)
+            finally:
+                self._auto_advance = False
 
     def _start_from_queue(self) -> bool:
         """Play the first queued song that can play; drop the ones that never can.
@@ -713,6 +737,11 @@ class MainWindow(QMainWindow):
 
     @Slot(int)
     def _countdown_status(self, remaining: int) -> None:
+        if self._session_auto:
+            text = tr("Bài tiếp theo sau {remaining} giây").format(remaining=remaining)
+            self.dock.set_status(text)
+            self.mini.status.setText(text)
+            return
         tail = "" if self._session_preview else tr(" — hãy click vào cửa sổ game")
         self.dock.set_status(tr("Bắt đầu sau {remaining} giây{tail}").format(
             remaining=remaining, tail=tail))
@@ -775,7 +804,7 @@ class MainWindow(QMainWindow):
             finished = self.current_song
             generation = self._command_generation
             if self.queue.repeat_mode == "one" and finished is not None:
-                QTimer.singleShot(0, lambda s=finished, g=generation: self._play_if_current(s, g))
+                QTimer.singleShot(0, lambda s=finished, g=generation: self._replay_if_current(s, g))
             else:
                 if self.queue.repeat_mode == "all" and finished is not None:
                     self.queue.add_song(finished)
@@ -1330,7 +1359,8 @@ class MainWindow(QMainWindow):
     # ----------------------------------------------------------- settings
     def _apply_settings(self) -> None:
         page = self.settings_page
-        widgets = (page.key_layout, page.countdown, page.always_on_top, page.reduced_motion,
+        widgets = (page.key_layout, page.countdown, page.queue_gap, page.always_on_top,
+                   page.reduced_motion,
                    page.minimize_to_tray, page.preview_sound, page.focus_lock_checkbox,
                    page.resume_focus_checkbox, page.check_updates, page.language)
         blockers = [QSignalBlocker(widget) for widget in widgets]
@@ -1339,6 +1369,7 @@ class MainWindow(QMainWindow):
             page.key_layout.setCurrentIndex(max(0, index))
             page.custom_keys.setText("".join(self.settings.custom_layout_keys))
             page.countdown.setValue(self.settings.countdown_seconds)
+            page.queue_gap.setValue(self.settings.queue_gap_seconds)
             page.countdown_value.setText(tr("{countdown_seconds} giây").format(
                 countdown_seconds=self.settings.countdown_seconds))
             page.always_on_top.setChecked(self.settings.always_on_top)

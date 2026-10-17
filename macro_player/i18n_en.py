@@ -742,4 +742,14 @@ EN: dict[str, str] = {
         '“{title}” cannot play yet, so it was not added to the queue.',
     'Đã thêm “{title}” vào hàng chờ.':
         'Added “{title}” to the queue.',
+    'Nghỉ giữa các bài trong hàng chờ':
+        'Gap between songs in the queue',
+    'Khi hàng chờ tự chuyển bài hoặc lặp bài, chỉ nghỉ ngần này thay vì đếm ngược. '
+    'Bài đầu tiên vẫn đếm ngược để bạn kịp vào game.':
+        'When the queue moves on or repeats, wait only this long instead of the countdown. '
+        'The first song still counts down so you can switch to the game.',
+    'Nghỉ giữa các bài':
+        'Gap between songs',
+    'Bài tiếp theo sau {remaining} giây':
+        'Next song in {remaining} s',
 }
