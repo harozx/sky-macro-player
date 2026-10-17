@@ -33,11 +33,12 @@ def is_sky_game_process(process_path: str | None) -> bool:
     return bool(process_path and Path(process_path).name.casefold() in _SKY_EXECUTABLES)
 
 
-def same_window_identity(expected: WindowInfo, current: WindowInfo) -> bool:
+def same_window_identity(expected: WindowInfo, current: WindowInfo, *,
+                         require_sky_title: bool = True) -> bool:
     """Protect against a stale/reused HWND by checking its process identity."""
     if expected.handle != current.handle or expected.process_id != current.process_id:
         return False
-    if not is_sky_game_title(current.title):
+    if require_sky_title and not is_sky_game_title(current.title):
         return False
     if expected.process_path:
         if not current.process_path:
@@ -66,6 +67,37 @@ def choose_sky_window(windows: Iterable[WindowInfo]) -> WindowInfo | None:
     return max(candidates, key=lambda item: len(item.title.strip())) if candidates else None
 
 
+def executable_name(process_path: str | None) -> str:
+    return Path(process_path).name if process_path else ""
+
+
+def choose_target_window(windows: Iterable[WindowInfo], exe_name: str) -> WindowInfo | None:
+    """Pick a window of a game the user chose explicitly by executable name."""
+    wanted = exe_name.strip().casefold()
+    candidates = [
+        window for window in windows
+        if window.title.strip() and window.process_id != os.getpid()
+        and executable_name(window.process_path).casefold() == wanted
+    ]
+    return max(candidates, key=lambda item: len(item.title.strip())) if candidates else None
+
+
+def pickable_windows(windows: Iterable[WindowInfo]) -> list[WindowInfo]:
+    """Visible windows of other processes with a known executable, for a picker."""
+    seen: set[tuple[str, str]] = set()
+    result = []
+    for window in windows:
+        name = executable_name(window.process_path)
+        if not window.title.strip() or not name or window.process_id == os.getpid():
+            continue
+        key = (name.casefold(), window.title.strip())
+        if key not in seen:
+            seen.add(key)
+            result.append(window)
+    return sorted(result, key=lambda item: (executable_name(item.process_path).casefold(),
+                                            item.title.casefold()))
+
+
 class FocusService(Protocol):
     def find_sky_window(self) -> WindowInfo | None: ...
     def activate(self, window: WindowInfo) -> bool: ...
@@ -80,7 +112,8 @@ class WindowsFocusService:
     SW_RESTORE = 9
     PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
 
-    def __init__(self) -> None:
+    def __init__(self, target_exe: str | None = None) -> None:
+        self.target_exe = target_exe
         self._user32 = ctypes.windll.user32 if os.name == "nt" else None
         self._kernel32 = ctypes.windll.kernel32 if os.name == "nt" else None
         if self._user32 is not None:
@@ -141,6 +174,8 @@ class WindowsFocusService:
         return tuple(results)
 
     def find_sky_window(self) -> WindowInfo | None:
+        if self.target_exe:
+            return choose_target_window(self.windows(), self.target_exe)
         return choose_sky_window(self.windows())
 
     def _process_path(self, process_id: int) -> str | None:
@@ -177,7 +212,8 @@ class WindowsFocusService:
 
     def validate_target(self, window: WindowInfo) -> bool:
         current = self._window_info(window.handle)
-        return current is not None and same_window_identity(window, current)
+        return current is not None and same_window_identity(
+            window, current, require_sky_title=not self.target_exe)
 
     def activate(self, window: WindowInfo) -> bool:
         if self._user32 is None or not self.validate_target(window):

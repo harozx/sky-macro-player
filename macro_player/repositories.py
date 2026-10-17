@@ -11,8 +11,8 @@ from pathlib import Path
 from typing import Any, Iterable, Mapping, Sequence
 
 from .domain import (
-    CURRENT_SETTINGS_VERSION, FavoriteEntry, NoteEvent, Settings,
-    SheetCompatibility, SongSheet,
+    CURRENT_SETTINGS_VERSION, LAYER_POLICIES, FavoriteEntry, HistoryEntry,
+    LibraryState, NoteEvent, Settings, SheetCompatibility, SongPreference, SongSheet,
 )
 
 
@@ -176,6 +176,14 @@ class SettingsRepository:
         focus_lock_enabled = raw.get("focus_lock_enabled", False)
         resume_on_sky_focus = raw.get("resume_on_sky_focus", True)
         reduced_motion = raw.get("reduced_motion", False)
+        custom_layout_keys = raw.get("custom_layout_keys", [])
+        speed = raw.get("speed", 1.0)
+        minimize_to_tray = raw.get("minimize_to_tray", False)
+        preview_sound = raw.get("preview_sound", True)
+        focus_target_exe = raw.get("focus_target_exe")
+        mini_position = raw.get("mini_position")
+        # Users upgrading from v3 already know the app; skip the first-run guide.
+        first_run_completed = raw.get("first_run_completed", version < 4)
 
         if not isinstance(hotkeys, Mapping):
             raise ValidationError("must be a JSON object", field="hotkeys")
@@ -208,8 +216,28 @@ class SettingsRepository:
             checked_slots.append(song.strip() if isinstance(song, str) else None)
         if len(checked_slots) != len(checked_keys):
             raise ValidationError("must have the same length as hotkey_keys", field="song_slots")
-        if keyboard_layout not in {"old", "new"}:
-            raise ValidationError("must be 'old' or 'new'", field="keyboard_layout")
+        if keyboard_layout not in {"old", "new", "custom"}:
+            raise ValidationError("must be 'old', 'new' or 'custom'", field="keyboard_layout")
+        if not isinstance(custom_layout_keys, list) or any(
+            not isinstance(key, str) or len(key.strip()) != 1 for key in custom_layout_keys
+        ):
+            raise ValidationError("must be a list of single characters", field="custom_layout_keys")
+        checked_layout = [key.strip().casefold() for key in custom_layout_keys]
+        if checked_layout and (len(checked_layout) != 15 or len(set(checked_layout)) != 15):
+            raise ValidationError("must contain 15 distinct keys", field="custom_layout_keys")
+        if keyboard_layout == "custom" and not checked_layout:
+            raise ValidationError("custom layout requires custom_layout_keys", field="keyboard_layout")
+        if focus_target_exe is not None and (
+            not isinstance(focus_target_exe, str) or not focus_target_exe.strip()
+            or "/" in focus_target_exe or "\\" in focus_target_exe
+        ):
+            raise ValidationError("must be null or an executable file name", field="focus_target_exe")
+        checked_position = None
+        if mini_position is not None:
+            if (not isinstance(mini_position, list) or len(mini_position) != 2
+                    or any(isinstance(v, bool) or not isinstance(v, int) for v in mini_position)):
+                raise ValidationError("must be null or [x, y]", field="mini_position")
+            checked_position = (mini_position[0], mini_position[1])
         if not isinstance(pause_hotkey, str) or not pause_hotkey.strip():
             raise ValidationError("must be a non-empty string", field="pause_hotkey")
 
@@ -226,6 +254,13 @@ class SettingsRepository:
             focus_lock_enabled=_strict_bool(focus_lock_enabled, "focus_lock_enabled"),
             resume_on_sky_focus=_strict_bool(resume_on_sky_focus, "resume_on_sky_focus"),
             reduced_motion=_strict_bool(reduced_motion, "reduced_motion"),
+            custom_layout_keys=tuple(checked_layout),
+            speed=_strict_float(speed, "speed", minimum=0.25, maximum=2.0),
+            minimize_to_tray=_strict_bool(minimize_to_tray, "minimize_to_tray"),
+            preview_sound=_strict_bool(preview_sound, "preview_sound"),
+            focus_target_exe=focus_target_exe.strip() if focus_target_exe else None,
+            mini_position=checked_position,
+            first_run_completed=_strict_bool(first_run_completed, "first_run_completed"),
         )
 
 
@@ -353,6 +388,7 @@ class SheetRepository:
             path.relative_to(self.root).as_posix()
             for path in sorted(self.root.rglob("*"), key=lambda item: str(item).casefold())
             if path.is_file() and path.suffix.lower() in {".json", ".txt"}
+            and not any(part.startswith(".") for part in path.relative_to(self.root).parts)
         )
 
     def load(self, path: str | Path) -> SongSheet:
@@ -437,3 +473,92 @@ class SheetRepository:
             source_name=source_name,
             metadata=metadata,
         )
+
+
+class LibraryStateRepository:
+    """History, play counts, playlists and per-song preferences."""
+
+    SCHEMA_VERSION = 1
+    HISTORY_LIMIT = 50
+
+    def __init__(self, path: str | Path) -> None:
+        self.path = Path(path)
+
+    def load(self) -> LibraryState:
+        if not self.path.exists():
+            return LibraryState()
+        return self._parse(_read_json(self.path))
+
+    def save(self, state: LibraryState) -> None:
+        validated = self._parse(self._serialize(state))
+        _atomic_write_json(self.path, self._serialize(validated))
+
+    def recover(self, state: LibraryState) -> Path | None:
+        backup = _backup_invalid_file(self.path)
+        self.save(state)
+        return backup
+
+    @staticmethod
+    def _serialize(state: LibraryState) -> dict[str, Any]:
+        return {
+            "schema_version": LibraryStateRepository.SCHEMA_VERSION,
+            "history": [{"path": e.path, "played_at": e.played_at} for e in state.history],
+            "play_counts": dict(state.play_counts),
+            "preferences": {
+                path: {key: value for key, value in (
+                    ("speed", pref.speed), ("layer_policy", pref.layer_policy),
+                ) if value is not None}
+                for path, pref in state.preferences.items()
+            },
+            "playlists": {name: list(paths) for name, paths in state.playlists.items()},
+        }
+
+    @classmethod
+    def _parse(cls, raw: Any) -> LibraryState:
+        if not isinstance(raw, Mapping):
+            raise ValidationError("library state root must be a JSON object")
+        history_raw = raw.get("history", [])
+        if not isinstance(history_raw, list):
+            raise ValidationError("must be a list", field="history")
+        history = []
+        for index, item in enumerate(history_raw[: cls.HISTORY_LIMIT]):
+            if not isinstance(item, Mapping) or not isinstance(item.get("path"), str):
+                raise ValidationError("must contain a path", field=f"history[{index}]")
+            history.append(HistoryEntry(
+                item["path"],
+                _strict_float(item.get("played_at", 0), f"history[{index}].played_at",
+                              minimum=0, maximum=1e12),
+            ))
+        counts_raw = raw.get("play_counts", {})
+        if not isinstance(counts_raw, Mapping):
+            raise ValidationError("must be a JSON object", field="play_counts")
+        counts = {
+            str(path): _strict_int(count, f"play_counts.{path}", minimum=0, maximum=10**9)
+            for path, count in counts_raw.items()
+        }
+        prefs_raw = raw.get("preferences", {})
+        if not isinstance(prefs_raw, Mapping):
+            raise ValidationError("must be a JSON object", field="preferences")
+        prefs = {}
+        for path, item in prefs_raw.items():
+            if not isinstance(item, Mapping):
+                raise ValidationError("must be a JSON object", field=f"preferences.{path}")
+            speed = item.get("speed")
+            policy = item.get("layer_policy")
+            if speed is not None:
+                speed = _strict_float(speed, f"preferences.{path}.speed", minimum=.25, maximum=2.)
+            if policy is not None and policy not in LAYER_POLICIES:
+                raise ValidationError("unknown layer policy",
+                                      field=f"preferences.{path}.layer_policy")
+            prefs[str(path)] = SongPreference(speed, policy)
+        playlists_raw = raw.get("playlists", {})
+        if not isinstance(playlists_raw, Mapping):
+            raise ValidationError("must be a JSON object", field="playlists")
+        playlists = {}
+        for name, paths in playlists_raw.items():
+            if not isinstance(name, str) or not name.strip():
+                raise ValidationError("playlist names must be non-empty", field="playlists")
+            if not isinstance(paths, list) or any(not isinstance(item, str) for item in paths):
+                raise ValidationError("must be a list of paths", field=f"playlists.{name}")
+            playlists[name.strip()] = tuple(paths)
+        return LibraryState(tuple(history), counts, prefs, playlists)

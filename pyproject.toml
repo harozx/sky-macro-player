@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "sky-macro-player"
 version = "2.1.0"
-description = "Desktop music-sheet player for Sky"
+description = "Desktop music-sheet player for Sky and Heartopia"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
@@ -14,19 +14,13 @@ dependencies = [
 ]
 
 [project.scripts]
-sky-instrument-console = "gui_qt:main"
+sky-macro-player = "macro_player.app:main"
+
+[project.gui-scripts]
+sky-macro-player-gui = "macro_player.app:main"
 
 [tool.setuptools]
-py-modules = [
-    "gui_qt",
-    "macro_core",
-    "sky_ui_core",
-    "sky_ui_shell",
-    "sky_ui_window",
-    "sky_ui_integrated",
-    "sky_ui_polish",
-    "sky_ui_final",
-]
+py-modules = ["gui_qt", "macro_core"]
 
 [tool.setuptools.packages.find]
 include = ["macro_player*"]

@@ -8,13 +8,14 @@ pytest.importorskip("PySide6")
 from PySide6.QtTest import QSignalSpy
 from PySide6.QtWidgets import QApplication
 
-import sky_ui_integrated
-from sky_ui_core import APP_DIR, NoteRunway, Song
-from sky_ui_integrated import (
-    PlaybackController, RepositoryFavoritesStore, RepositorySheetLibrary,
-    canonical_hotkey, load_validated_sheet,
-)
-from sky_ui_shell import LibraryPage, MiniOverlay
+import macro_player.playback as playback_module
+from macro_player.hotkeys import canonical_hotkey
+from macro_player.library import Library, Song
+from macro_player.paths import bundled_sheets_dir
+from macro_player.playback import PlaybackController, load_song_events
+from macro_player.ui.library_page import LibraryPage
+from macro_player.ui.mini import MiniOverlay
+from macro_player.ui.widgets import NoteRunway
 
 
 @pytest.fixture(scope="session")
@@ -22,22 +23,24 @@ def app():
     return QApplication.instance() or QApplication([])
 
 
-def test_repository_adapter_loads_utf16_real_sheet():
-    candidates = list((APP_DIR / "sheets").glob("*.txt"))
-    utf16 = next(path for path in candidates if path.read_bytes().startswith((b"\xff\xfe", b"\xfe\xff")))
-    data, moments, duration = load_validated_sheet(utf16)
-    assert data["songNotes"]
+def test_loader_reads_utf16_real_sheet():
+    candidates = list(bundled_sheets_dir().glob("*.txt"))
+    boms = (bytes([0xFF, 0xFE]), bytes([0xFE, 0xFF]))
+    utf16 = next(path for path in candidates if path.read_bytes().startswith(boms))
+    events, moments, duration = load_song_events(Song(utf16, "x"))
+    assert events
     assert moments == sorted(moments)
     assert duration == moments[-1]
 
 
-def test_repository_library_discovers_real_dataset():
-    songs = RepositorySheetLibrary().songs()
+def test_library_discovers_real_dataset(tmp_path: Path):
+    songs = Library(bundled_sheets_dir(), tmp_path / "fav.json").scan(
+        [f"1Key{i}" for i in range(15)])
     assert len(songs) >= 100
     assert all(song.path.is_file() for song in songs)
 
 
-def test_favorites_adapter_accepts_legacy_records(tmp_path: Path):
+def test_library_accepts_legacy_favorite_records(tmp_path: Path):
     sheets = tmp_path / "sheets"
     sheets.mkdir()
     (sheets / "Song.txt").write_text(json.dumps({"songNotes": []}))
@@ -45,7 +48,7 @@ def test_favorites_adapter_accepts_legacy_records(tmp_path: Path):
     target.write_text(json.dumps([
         {"name": "Song.txt", "type": "JSON", "path": "sheets\\Song.txt"},
     ]))
-    assert RepositoryFavoritesStore(target, sheets).load() == {"sheets\\Song.txt"}
+    assert Library(sheets, target).load_favorites() == {"song.txt"}
 
 
 def test_library_filter_hides_non_matching_song(app):
@@ -138,14 +141,11 @@ def test_controller_emits_countdown_then_playing(qtbot, monkeypatch, tmp_path: P
         def __init__(self, **kwargs):
             self.input_guard = kwargs.get("input_guard")
 
-        def set_key_layout(self, value):
-            self.layout = value
-
-        def play_json_sheet(self, data, stop, pause, countdown):
+        def play_events(self, events, stop, pause, countdown, **kwargs):
             assert countdown == 0
             return True
 
-    monkeypatch.setattr(sky_ui_integrated, "MacroPlayer", FakePlayer)
+    monkeypatch.setattr(playback_module, "MacroPlayer", FakePlayer)
     controller = PlaybackController()
     controller.countdown = 1
     states = []
@@ -165,13 +165,10 @@ def test_controller_can_replace_completed_qthread_safely(qtbot, monkeypatch, tmp
         def __init__(self, **kwargs):
             pass
 
-        def set_key_layout(self, value):
-            pass
-
-        def play_json_sheet(self, data, stop, pause, countdown):
+        def play_events(self, events, stop, pause, countdown, **kwargs):
             return True
 
-    monkeypatch.setattr(sky_ui_integrated, "MacroPlayer", FakePlayer)
+    monkeypatch.setattr(playback_module, "MacroPlayer", FakePlayer)
     controller = PlaybackController()
     controller.countdown = 0
     song = Song(sheet, "Valid")

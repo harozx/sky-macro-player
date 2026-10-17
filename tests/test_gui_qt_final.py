@@ -5,8 +5,10 @@ from PySide6.QtGui import QKeySequence
 
 from macro_player.domain import Settings
 from macro_player.repositories import SettingsRepository
-from sky_ui_core import Song
-from sky_ui_final import DefaultHotkeyService, EditableHotkeysPage, MainWindow
+from macro_player.hotkeys import DefaultHotkeyService
+from macro_player.library import Song
+from macro_player.ui.hotkeys_page import EditableHotkeysPage
+from macro_player.ui.main_window import MainWindow
 
 
 class FakeHotkeys(QObject):
@@ -110,7 +112,7 @@ def test_legacy_hotkey_defaults_are_f10_stop_f11_next(monkeypatch):
         captured.update(settings.hotkeys)
         return True
 
-    monkeypatch.setattr("sky_ui_integrated.GlobalHotkeyService.start", fake_start)
+    monkeypatch.setattr("macro_player.hotkeys.GlobalHotkeyService.start", fake_start)
     assert DefaultHotkeyService().start(Settings())
     assert captured["stop"] == "f10"
     assert captured["next"] == "f11"

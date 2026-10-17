@@ -6,10 +6,11 @@ from pathlib import Path
 import pytest
 
 from macro_player.search import fold_text, matches
-from sky_ui_core import Song
-from sky_ui_final import MainWindow
-from sky_ui_integrated import RepositorySheetLibrary
-from sky_ui_shell import LibraryPage, QueuePanel, format_duration, sort_songs
+from macro_player.library import Song
+from macro_player.ui.library_page import LibraryPage, sort_songs
+from macro_player.ui.main_window import MainWindow
+from macro_player.ui.queue_panel import QueuePanel
+from macro_player.ui.widgets import format_duration
 
 
 class FakeController:
@@ -108,8 +109,10 @@ def test_format_duration():
     assert format_duration(185_400) == "3:05"
 
 
-def test_real_library_has_metadata_and_flags_unsupported_sheets():
-    songs = RepositorySheetLibrary().songs()
+def test_real_library_has_metadata_and_flags_unsupported_sheets(qtbot):
+    window = MainWindow(enable_global_hotkeys=False, use_tray=False)
+    qtbot.addWidget(window)
+    songs = window.songs
     assert all(not s.title.endswith("Không hỗ trợ") for s in songs)
     assert sum(not s.playable for s in songs) == 6
     assert all(s.duration_ms > 0 and s.note_count > 0 for s in songs if s.playable)
@@ -156,7 +159,7 @@ def test_repeat_mode_cycles(qtbot):
 
 @pytest.fixture
 def window(qtbot):
-    win = MainWindow(enable_global_hotkeys=False)
+    win = MainWindow(enable_global_hotkeys=False, use_tray=False)
     qtbot.addWidget(win)
     win.controller = FakeController()
     win.play_song = lambda s: bool(win.controller.play(s))

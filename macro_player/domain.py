@@ -7,7 +7,7 @@ from types import MappingProxyType
 from typing import Any, Mapping, Tuple
 
 
-CURRENT_SETTINGS_VERSION = 3
+CURRENT_SETTINGS_VERSION = 4
 
 
 @dataclass(frozen=True)
@@ -30,6 +30,13 @@ class Settings:
     focus_lock_enabled: bool = False
     resume_on_sky_focus: bool = True
     reduced_motion: bool = False
+    custom_layout_keys: Tuple[str, ...] = ()
+    speed: float = 1.0
+    minimize_to_tray: bool = False
+    preview_sound: bool = True
+    focus_target_exe: str | None = None
+    mini_position: Tuple[int, int] | None = None
+    first_run_completed: bool = False
 
     def __post_init__(self) -> None:
         # Prevent callers from mutating a frozen Settings through its mapping.
@@ -49,6 +56,13 @@ class Settings:
             "focus_lock_enabled": self.focus_lock_enabled,
             "resume_on_sky_focus": self.resume_on_sky_focus,
             "reduced_motion": self.reduced_motion,
+            "custom_layout_keys": list(self.custom_layout_keys),
+            "speed": self.speed,
+            "minimize_to_tray": self.minimize_to_tray,
+            "preview_sound": self.preview_sound,
+            "focus_target_exe": self.focus_target_exe,
+            "mini_position": list(self.mini_position) if self.mini_position else None,
+            "first_run_completed": self.first_run_completed,
         }
 
 
@@ -99,3 +113,34 @@ class SheetCompatibility:
     @property
     def playable(self) -> bool:
         return self.error is None and not self.unsupported_keys
+
+
+LAYER_POLICIES = ("merge", "layer1")
+
+
+@dataclass(frozen=True)
+class SongPreference:
+    """Per-song choices remembered between sessions."""
+
+    speed: float | None = None
+    layer_policy: str | None = None
+
+
+@dataclass(frozen=True)
+class HistoryEntry:
+    path: str
+    played_at: float
+
+
+@dataclass(frozen=True)
+class LibraryState:
+    """Listening history, play counts, playlists and per-song preferences."""
+
+    history: Tuple[HistoryEntry, ...] = ()
+    play_counts: Mapping[str, int] = field(default_factory=dict)
+    preferences: Mapping[str, SongPreference] = field(default_factory=dict)
+    playlists: Mapping[str, Tuple[str, ...]] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        for name in ("play_counts", "preferences", "playlists"):
+            object.__setattr__(self, name, MappingProxyType(dict(getattr(self, name))))

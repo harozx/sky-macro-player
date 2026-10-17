@@ -3,6 +3,7 @@ import uuid
 from PySide6.QtWidgets import QWidget
 
 import gui_qt
+import macro_player.app as app_module
 from gui_qt import acquire_instance_lock
 
 
@@ -22,7 +23,7 @@ def test_single_instance_lock_rejects_second_process(tmp_path):
 
 def test_second_instance_requests_existing_window_activation(qtbot, monkeypatch):
     server_name = f"sky-instrument-test-{uuid.uuid4()}"
-    monkeypatch.setattr(gui_qt, "INSTANCE_SERVER", server_name)
+    monkeypatch.setattr(app_module, "INSTANCE_SERVER", server_name)
 
     class Window(QWidget):
         def __init__(self):

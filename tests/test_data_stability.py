@@ -5,14 +5,15 @@ from pathlib import Path
 import pytest
 from PySide6.QtCore import QObject, Signal
 
-import sky_ui_integrated
+import macro_player.hotkeys as hotkeys_module
 from macro_player.domain import Settings
 from macro_player.repositories import (
     FavoritesRepository, RepositoryError, SettingsRepository, SheetRepository,
 )
-from sky_ui_core import SHEETS_DIR, Song
-from sky_ui_final import EditableHotkeysPage, MainWindow
-from sky_ui_integrated import GlobalHotkeyService, canonical_hotkey
+from macro_player.hotkeys import GlobalHotkeyService, canonical_hotkey
+from macro_player.library import Song
+from macro_player.ui.hotkeys_page import EditableHotkeysPage
+from macro_player.ui.main_window import MainWindow
 
 
 def test_sheet_audit_reports_unsupported_keys_before_play(tmp_path: Path) -> None:
@@ -63,7 +64,7 @@ def test_hotkey_failure_restores_previous_listener(monkeypatch, qtbot) -> None:
         def stop(self):
             self.stopped = True
 
-    monkeypatch.setattr(sky_ui_integrated.keyboard, "GlobalHotKeys", FakeListener)
+    monkeypatch.setattr(hotkeys_module.keyboard, "GlobalHotKeys", FakeListener)
     service = GlobalHotkeyService()
     assert service.start(Settings())
     assert not service.start(Settings(pause_hotkey="f8"))
@@ -85,7 +86,7 @@ def test_hotkey_listener_that_dies_during_start_is_rejected(monkeypatch) -> None
             return False
         def stop(self):
             pass
-    monkeypatch.setattr(sky_ui_integrated.keyboard, "GlobalHotKeys", DeadListener)
+    monkeypatch.setattr(hotkeys_module.keyboard, "GlobalHotKeys", DeadListener)
     service = GlobalHotkeyService()
     assert not service.start(Settings())
     assert service._listener is None
@@ -102,7 +103,7 @@ def test_hotkey_listener_death_after_start_is_reported(monkeypatch, qtbot) -> No
             return self.alive
         def stop(self):
             self.alive = False
-    monkeypatch.setattr(sky_ui_integrated.keyboard, "GlobalHotKeys", Listener)
+    monkeypatch.setattr(hotkeys_module.keyboard, "GlobalHotKeys", Listener)
     service = GlobalHotkeyService()
     errors = []
     service.error.connect(errors.append)
@@ -162,7 +163,7 @@ def test_enabling_focus_lock_while_busy_is_rejected(qtbot) -> None:
     qtbot.addWidget(window)
     original = window.settings.focus_lock_enabled
     window.controller._thread = type("Busy", (), {"isRunning": lambda self: True})()
-    window.focus_lock_checkbox.setChecked(not original)
+    window.settings_page.focus_lock_checkbox.setChecked(not original)
     assert window.settings.focus_lock_enabled is original
     assert "dừng bài" in window.dock.status.text().casefold()
     window.controller._thread = None
@@ -174,19 +175,18 @@ def test_favorite_save_error_keeps_existing_ui_state(qtbot) -> None:
     song = window.songs[0]
     before = [(item.path, item.favorite) for item in window.songs]
 
-    class BrokenFavorites:
-        def save(self, paths):
-            raise RepositoryError("read only")
+    def broken_save(paths):
+        raise RepositoryError("read only")
 
-    window.library_source.favorites = BrokenFavorites()
+    window.library.save_favorites = broken_save
     window.toggle_favorite(song)
     assert [(item.path, item.favorite) for item in window.songs] == before
 
 
 def test_song_slot_uses_full_relative_identity(qtbot) -> None:
     songs = [
-        Song(SHEETS_DIR / "a" / "song.txt", "A"),
-        Song(SHEETS_DIR / "b" / "song.txt", "B"),
+        Song(Path("a") / "song.txt", "A", relative="a/song.txt"),
+        Song(Path("b") / "song.txt", "B", relative="b/song.txt"),
     ]
     settings = Settings(song_slots=("b/song.txt",) + (None,) * 7)
     page = EditableHotkeysPage(settings, songs)
