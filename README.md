@@ -36,6 +36,8 @@ the game loses focus.
   `Sky.exe`; you can pick another game window (for example Heartopia).
 - **Hotkeys:** record global shortcuts by pressing them; conflicts with the
   music keys are rejected. Eight song slots.
+- **Language:** Vietnamese by default; English can be chosen in Settings
+  (applies after a restart).
 - **Everyday comfort:** mini player, system tray menu with notifications,
   optional close-to-tray, Ctrl+K command palette, first-run guide, custom
   15-key layout, optional update check, and a diagnostics export.
