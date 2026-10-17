@@ -10,7 +10,6 @@ import json
 import os
 import shutil
 import sys
-import sys
 import threading
 from dataclasses import dataclass
 from pathlib import Path
@@ -123,6 +122,10 @@ class Song:
     path: Path
     title: str
     favorite: bool = False
+    playable: bool = True
+    duration_ms: int = 0
+    note_count: int = 0
+    added_at: float = 0.0
 
     @property
     def identity(self) -> str:

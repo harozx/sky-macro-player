@@ -7,7 +7,9 @@ and a deterministic playback engine.
 
 ## Highlights
 
-- Unified library with search and favorites filter.
+- Unified library with accent-insensitive Vietnamese search, sorting, and
+  All / Favorites / Playable filters.
+- Play all, shuffle, repeat queue, and repeat one song.
 - Queue and playback dock available from every screen.
 - Mini overlay with play/pause, next, and emergency stop controls.
 - Note Runway visualization tied to playback state.
@@ -41,8 +43,14 @@ available, setup shows the official download page and exits safely.
 
 ## Using the console
 
-- **Thư viện:** search, play, favorite, or add a song to the queue.
+- **Thư viện:** search without typing accents (`bang khuang` finds
+  *Bâng khuâng*), sort by name, length, or newest, filter favorites or
+  playable sheets, and see each song's length. **Phát tất cả** and
+  **Trộn bài** replace the queue with the songs currently shown.
 - **Hàng chờ:** drag to reorder, remove an item, or double-click to play it.
+  **Trộn** shuffles the queue, **Xóa hết** clears it, and **Hoàn tác**
+  restores the previous queue. **Lặp** cycles Off → Repeat queue → Repeat
+  one song; Stop always ends repeating.
   On a narrow window, use **Hiện hàng chờ** in the navigation rail.
 - **Phím tắt:** edit pause, stop, next, and eight song-slot bindings, then press
   **Lưu và áp dụng**.

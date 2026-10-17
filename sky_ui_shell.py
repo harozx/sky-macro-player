@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import random
 import sys
 
 from PySide6.QtCore import Qt, QTimer, Signal, Slot
@@ -14,6 +15,7 @@ from PySide6.QtWidgets import (
 )
 
 from macro_core import MacroPlayer
+from macro_player.search import fold_text, matches
 from sky_ui_core import (
     JsonFavoritesStore, NoteRunway, PlaybackController, SheetLibrary, Song,
     STYLE, Tokens,
@@ -164,9 +166,39 @@ class FilterPill(QPushButton):
         self.setProperty("compact", True)
 
 
+def format_duration(milliseconds: int) -> str:
+    seconds = max(0, int(milliseconds) // 1000)
+    return f"{seconds // 60}:{seconds % 60:02d}"
+
+
+SORT_OPTIONS = (
+    ("Tên A–Z", "title"),
+    ("Tên Z–A", "title_desc"),
+    ("Ngắn nhất", "shortest"),
+    ("Dài nhất", "longest"),
+    ("Mới thêm", "newest"),
+)
+
+
+def sort_songs(songs: list[Song], key: str) -> list[Song]:
+    def by_title(song: Song) -> str:
+        return fold_text(song.title)
+
+    if key == "title_desc":
+        return sorted(songs, key=by_title, reverse=True)
+    if key == "shortest":
+        return sorted(songs, key=lambda song: (song.duration_ms, by_title(song)))
+    if key == "longest":
+        return sorted(songs, key=lambda song: (-song.duration_ms, by_title(song)))
+    if key == "newest":
+        return sorted(songs, key=lambda song: (-song.added_at, by_title(song)))
+    return sorted(songs, key=by_title)
+
+
 class LibraryPage(QWidget):
     play_requested, queue_requested = Signal(object), Signal(object)
     favorite_requested = Signal(object)
+    play_all_requested = Signal(list, bool)
 
     def __init__(self, songs: list[Song]) -> None:
         super().__init__()
@@ -177,71 +209,154 @@ class LibraryPage(QWidget):
         eyebrow.setObjectName("eyebrow")
         title = QLabel("Thư viện")
         title.setObjectName("pageTitle")
-        subtitle = QLabel("Tìm bài, đánh dấu yêu thích hoặc đưa vào hàng chờ.")
-        subtitle.setObjectName("muted")
-        for widget in (eyebrow, title, subtitle):
+        self.summary = QLabel()
+        self.summary.setObjectName("muted")
+        for widget in (eyebrow, title, self.summary):
             layout.addWidget(widget)
         toolbar = QHBoxLayout()
         self.search = QLineEdit()
-        self.search.setPlaceholderText("Tìm theo tên bài…")
+        self.search.setPlaceholderText("Tìm theo tên bài, không cần gõ dấu…")
         self.search.setClearButtonEnabled(True)
         self.search.setAccessibleName("Tìm bài hát")
         toolbar.addWidget(self.search, 1)
+        self.sort = QComboBox()
+        self.sort.setAccessibleName("Sắp xếp danh sách bài")
+        for label, key in SORT_OPTIONS:
+            self.sort.addItem(label, key)
+        toolbar.addWidget(self.sort)
+        layout.addLayout(toolbar)
+        pills = QHBoxLayout()
         self.filters = QButtonGroup(self)
         self.filters.setExclusive(True)
-        for label, key in (("Tất cả", "all"), ("Yêu thích", "favorites")):
+        for label, key in (("Tất cả", "all"), ("Yêu thích", "favorites"),
+                           ("Phát được", "playable")):
             pill = FilterPill(label, key)
             pill.setChecked(key == "all")
+            pill.setAccessibleName(f"Lọc: {label}")
             self.filters.addButton(pill)
-            toolbar.addWidget(pill)
-        layout.addLayout(toolbar)
+            pills.addWidget(pill)
+        pills.addStretch(1)
+        self.result_count = QLabel()
+        self.result_count.setObjectName("muted")
+        pills.addWidget(self.result_count)
+        layout.addLayout(pills)
         self.list = QListWidget()
         self.list.setAccessibleName("Danh sách bài hát")
         self.list.setUniformItemSizes(True)
         layout.addWidget(self.list, 1)
+        self.empty_state = QLabel()
+        self.empty_state.setObjectName("muted")
+        self.empty_state.setWordWrap(True)
+        self.empty_state.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.empty_state.hide()
+        layout.addWidget(self.empty_state, 1)
         actions = QHBoxLayout()
         play = QPushButton("Phát bài đã chọn")
         play.setProperty("primary", True)
         queue, favorite = QPushButton("Thêm hàng chờ"), QPushButton("Đổi trạng thái yêu thích")
+        self.play_all_button = QPushButton("Phát tất cả")
+        self.shuffle_button = QPushButton("Trộn bài")
+        self.play_all_button.setToolTip("Thay hàng chờ bằng các bài đang hiển thị rồi phát từ đầu.")
+        self.shuffle_button.setToolTip("Thay hàng chờ bằng các bài đang hiển thị theo thứ tự ngẫu nhiên.")
         for button in (play, queue, favorite):
             actions.addWidget(button)
         actions.addStretch(1)
         layout.addLayout(actions)
+        list_actions = QHBoxLayout()
+        for button in (self.play_all_button, self.shuffle_button):
+            list_actions.addWidget(button)
+        list_actions.addStretch(1)
+        layout.addLayout(list_actions)
         self.search.textChanged.connect(self.apply_filter)
         self.filters.buttonClicked.connect(self.apply_filter)
+        self.sort.currentIndexChanged.connect(self.rebuild)
         self.list.itemDoubleClicked.connect(lambda _: self._emit(self.play_requested))
         play.clicked.connect(lambda: self._emit(self.play_requested))
         queue.clicked.connect(lambda: self._emit(self.queue_requested))
         favorite.clicked.connect(lambda: self._emit(self.favorite_requested))
+        self.play_all_button.clicked.connect(
+            lambda: self.play_all_requested.emit(self.visible_songs(), False))
+        self.shuffle_button.clicked.connect(
+            lambda: self.play_all_requested.emit(self.visible_songs(), True))
         self.rebuild()
 
+    @staticmethod
+    def item_text(song: Song) -> str:
+        parts = [song.title]
+        if song.duration_ms:
+            parts.append(format_duration(song.duration_ms))
+        if song.favorite:
+            parts.append("Yêu thích")
+        if not song.playable:
+            parts.append("Không hỗ trợ")
+        return "  ·  ".join(parts)
+
+    @Slot()
     def rebuild(self) -> None:
         selected = self.selected_song()
         self.list.clear()
-        for song in self.songs:
-            item = QListWidgetItem(song.title + ("  ·  Yêu thích" if song.favorite else ""))
+        for song in sort_songs(list(self.songs), self.sort.currentData() or "title"):
+            item = QListWidgetItem(self.item_text(song))
             item.setData(Qt.ItemDataRole.UserRole, song)
-            item.setToolTip(str(song.path))
+            details = [str(song.path)]
+            if song.note_count:
+                details.append(f"{song.note_count} nốt")
+            if not song.playable:
+                details.append("Sheet dùng phím chưa hỗ trợ; bài này sẽ bị chặn trước khi phát.")
+            item.setToolTip("\n".join(details))
             self.list.addItem(item)
             if selected and selected.path == song.path:
                 self.list.setCurrentItem(item)
+        playable = sum(song.playable for song in self.songs)
+        self.summary.setText(
+            f"{len(self.songs)} bài · {playable} phát được. "
+            "Tìm bài, đánh dấu yêu thích hoặc đưa vào hàng chờ."
+        )
         self.apply_filter()
 
     @Slot()
     def apply_filter(self) -> None:
-        needle = self.search.text().strip().casefold()
+        query = self.search.text().strip()
         active = self.filters.checkedButton()
-        favorites_only = isinstance(active, FilterPill) and active.key == "favorites"
+        mode = active.key if isinstance(active, FilterPill) else "all"
         visible = 0
         for index in range(self.list.count()):
             item = self.list.item(index)
             song = item.data(Qt.ItemDataRole.UserRole)
-            show = needle in song.title.casefold() and (song.favorite or not favorites_only)
+            show = (
+                matches(query, song.title, song.path.stem)
+                and (mode != "favorites" or song.favorite)
+                and (mode != "playable" or song.playable)
+            )
             item.setHidden(not show)
             visible += int(show)
-        self.list.setToolTip(
-            "" if visible else "Không có bài phù hợp. Hãy thử từ khóa khác hoặc bỏ bộ lọc yêu thích."
-        )
+        total = self.list.count()
+        self.result_count.setText(f"Hiển thị {visible}/{total}")
+        if not total:
+            message = ("Thư viện đang trống. Chép file sheet .txt hoặc .json vào "
+                       "thư mục sheets rồi mở lại ứng dụng.")
+        elif not visible and query:
+            message = (f"Không có bài nào khớp “{query}”. "
+                       "Hãy thử từ khóa ngắn hơn hoặc chọn bộ lọc Tất cả.")
+        elif not visible:
+            message = ("Chưa có bài nào trong bộ lọc này. "
+                       "Nhấn “Đổi trạng thái yêu thích” để thêm bài vào Yêu thích."
+                       if mode == "favorites" else "Không có bài phù hợp với bộ lọc này.")
+        else:
+            message = ""
+        self.empty_state.setText(message)
+        self.empty_state.setVisible(bool(message))
+        self.list.setVisible(not message)
+        has_playable = any(song.playable for song in self.visible_songs())
+        self.play_all_button.setEnabled(has_playable)
+        self.shuffle_button.setEnabled(has_playable)
+
+    def visible_songs(self) -> list[Song]:
+        return [
+            self.list.item(index).data(Qt.ItemDataRole.UserRole)
+            for index in range(self.list.count())
+            if not self.list.item(index).isHidden()
+        ]
 
     def selected_song(self) -> Song | None:
         item = self.list.currentItem()
@@ -269,18 +384,100 @@ class QueuePanel(QWidget):
         title.setFont(QFont(Tokens.DISPLAY, 19, QFont.Weight.DemiBold))
         self.hint = QLabel("Thêm bài từ thư viện.")
         self.hint.setObjectName("muted")
+        self.hint.setWordWrap(True)
         self.list = QListWidget()
         self.list.setAccessibleName("Hàng chờ phát nhạc")
         self.list.setDragDropMode(QListWidget.DragDropMode.InternalMove)
+        self.repeat_mode = "off"
+        self.repeat_button = QPushButton()
+        self.repeat_button.setAccessibleName("Đổi chế độ lặp")
+        self.repeat_button.setToolTip(
+            "Tắt → Lặp hàng chờ → Lặp một bài. Dừng luôn kết thúc việc lặp.")
+        self._sync_repeat()
+        tools = QHBoxLayout()
+        self.shuffle_button = QPushButton("Trộn")
+        self.shuffle_button.setToolTip("Xáo trộn thứ tự các bài đang chờ.")
+        self.clear_button = QPushButton("Xóa hết")
+        for button in (self.shuffle_button, self.clear_button):
+            button.setProperty("compact", True)
+            tools.addWidget(button)
+        self.undo_button = QPushButton("Hoàn tác")
+        self.undo_button.setAccessibleName("Hoàn tác thay đổi hàng chờ")
+        self.undo_button.hide()
         remove = QPushButton("Bỏ bài đã chọn")
         remove.setProperty("danger", True)
-        for widget in (eyebrow, title, self.hint, self.list, remove):
+        for widget in (eyebrow, title, self.hint, self.repeat_button):
+            layout.addWidget(widget)
+        layout.addLayout(tools)
+        for widget in (self.list, self.undo_button, remove):
             layout.addWidget(widget)
         layout.setStretchFactor(self.list, 1)
         self.list.itemDoubleClicked.connect(
             lambda item: self.play_requested.emit(item.data(Qt.ItemDataRole.UserRole))
         )
         remove.clicked.connect(self._remove)
+        self.repeat_button.clicked.connect(self.cycle_repeat)
+        self.shuffle_button.clicked.connect(lambda: self.shuffle())
+        self.clear_button.clicked.connect(self.clear)
+        self.undo_button.clicked.connect(self.undo)
+        self._undo_snapshot: list[Song] | None = None
+
+    REPEAT_LABELS = {"off": "Lặp: Tắt", "all": "Lặp: Hàng chờ", "one": "Lặp: Một bài"}
+
+    def _sync_repeat(self) -> None:
+        self.repeat_button.setText(self.REPEAT_LABELS[self.repeat_mode])
+
+    @Slot()
+    def cycle_repeat(self) -> None:
+        order = ("off", "all", "one")
+        self.set_repeat_mode(order[(order.index(self.repeat_mode) + 1) % len(order)])
+
+    def set_repeat_mode(self, mode: str) -> None:
+        if mode not in self.REPEAT_LABELS:
+            raise ValueError(f"Chế độ lặp không hợp lệ: {mode}")
+        self.repeat_mode = mode
+        self._sync_repeat()
+
+    def songs(self) -> list[Song]:
+        return [self.list.item(row).data(Qt.ItemDataRole.UserRole)
+                for row in range(self.list.count())]
+
+    def _set_songs(self, songs: list[Song]) -> None:
+        self.list.clear()
+        for song in songs:
+            item = QListWidgetItem(song.title)
+            item.setData(Qt.ItemDataRole.UserRole, song)
+            self.list.addItem(item)
+        self._sync_hint()
+
+    def _remember_for_undo(self) -> None:
+        self._undo_snapshot = self.songs()
+        self.undo_button.setVisible(bool(self._undo_snapshot))
+
+    def replace_songs(self, songs: list[Song]) -> None:
+        """Replace the whole queue; the previous queue can be restored once."""
+        self._remember_for_undo()
+        self._set_songs(songs)
+
+    def shuffle(self, rng: random.Random | None = None) -> None:
+        songs = self.songs()
+        if len(songs) < 2:
+            return
+        (rng or random).shuffle(songs)
+        self._set_songs(songs)
+
+    @Slot()
+    def clear(self) -> None:
+        if self.list.count():
+            self._remember_for_undo()
+            self._set_songs([])
+
+    @Slot()
+    def undo(self) -> None:
+        if self._undo_snapshot is not None:
+            snapshot, self._undo_snapshot = self._undo_snapshot, None
+            self._set_songs(snapshot)
+        self.undo_button.hide()
 
     def add_song(self, song: Song) -> None:
         item = QListWidgetItem(song.title)

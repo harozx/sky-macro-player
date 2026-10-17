@@ -20,7 +20,7 @@ from PySide6.QtWidgets import QLabel, QPushButton, QVBoxLayout, QWidget
 from pynput import keyboard
 
 from macro_core import MacroPlayer
-from macro_player.domain import FavoriteEntry, Settings
+from macro_player.domain import FavoriteEntry, Settings, SheetCompatibility
 from macro_player.repositories import (
     FavoritesRepository, RepositoryError, SettingsRepository, SheetRepository,
 )
@@ -68,23 +68,40 @@ class RepositorySheetLibrary:
 
         songs = []
         for relative in self.sheet_repository.list():
-            audits = {
-                layout: self.sheet_repository.audit(
-                    relative, detail["json_map"].keys()
+            path = self.sheet_repository.root / relative
+            try:
+                sheet = self.sheet_repository.load(relative)
+            except RepositoryError as exc:
+                sheet, error = None, str(exc)
+            else:
+                error = None
+            audits = {}
+            for layout, detail in MacroPlayer.KEY_LAYOUTS.items():
+                if sheet is None:
+                    audits[layout] = SheetCompatibility(relative, error=error)
+                    continue
+                supported = detail["json_map"].keys()
+                unsupported = sorted(
+                    {key for note in sheet.notes for key in note.keys
+                     if key not in supported},
+                    key=str.casefold,
                 )
-                for layout, detail in MacroPlayer.KEY_LAYOUTS.items()
-            }
+                audits[layout] = SheetCompatibility(
+                    relative, len(sheet.notes), tuple(unsupported)
+                )
             self.compatibility[relative.casefold()] = audits
             try:
-                title = self.sheet_repository.load(relative).title
-            except RepositoryError:
-                title = Path(relative).stem
-            if not all(audit.playable for audit in audits.values()):
-                title += " · Không hỗ trợ"
+                added_at = path.stat().st_mtime
+            except OSError:
+                added_at = 0.0
             songs.append(Song(
-                self.sheet_repository.root / relative,
-                title,
+                path,
+                sheet.title if sheet is not None else Path(relative).stem,
                 relative.casefold() in favorites,
+                playable=all(audit.playable for audit in audits.values()),
+                duration_ms=int(sheet.notes[-1].time) if sheet and sheet.notes else 0,
+                note_count=len(sheet.notes) if sheet is not None else 0,
+                added_at=added_at,
             ))
         return songs
 
@@ -670,7 +687,7 @@ class MainWindow(PrototypeWindow):
     @Slot(object)
     def toggle_favorite(self, song: Song) -> None:
         updated = [
-            Song(item.path, item.title, not item.favorite) if item.path == song.path else item
+            replace(item, favorite=not item.favorite) if item.path == song.path else item
             for item in self.songs
         ]
         try:

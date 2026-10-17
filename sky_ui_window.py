@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import random
+from dataclasses import replace
+
 from PySide6.QtCore import Qt, QTimer, Slot
 from PySide6.QtGui import QAction, QKeySequence
 from PySide6.QtWidgets import (
@@ -33,6 +36,7 @@ class MainWindow(QMainWindow):
         self.pending_song: Song | None = None
         self._closing = False
         self._command_generation = 0
+        self._rng = random.Random()
         self.mini = MiniOverlay()
 
         root = QWidget()
@@ -95,6 +99,7 @@ class MainWindow(QMainWindow):
         self.library_page.play_requested.connect(self.play_song)
         self.library_page.queue_requested.connect(self.queue.add_song)
         self.library_page.favorite_requested.connect(self.toggle_favorite)
+        self.library_page.play_all_requested.connect(self.play_all)
         self.queue.play_requested.connect(self._play_queued_song)
         self.dock.play_requested.connect(self.toggle_play)
         self.dock.next_requested.connect(self.play_next)
@@ -197,6 +202,26 @@ class MainWindow(QMainWindow):
         if next_song and self.play_song(next_song):
             self.queue.remove_first_if(next_song)
 
+    @Slot(list, bool)
+    def play_all(self, songs: list[Song], shuffle: bool = False) -> bool:
+        """Replace the queue with playable ``songs`` and start the first one."""
+        if self._closing:
+            return False
+        playable = [song for song in songs if song.playable]
+        if not playable:
+            self._show_error("Không có bài phát được trong danh sách đang hiển thị.")
+            return False
+        if shuffle:
+            self._rng.shuffle(playable)
+        self.queue.replace_songs(playable)
+        if not self.queue.isVisible():
+            self.queue_toggle.setChecked(True)
+        first = playable[0]
+        if self.play_song(first):
+            self.queue.remove_first_if(first)
+            return True
+        return False
+
     def stop_playback(self) -> None:
         """Route Stop to the controller currently owned by the window."""
         self._command_generation += 1
@@ -215,7 +240,7 @@ class MainWindow(QMainWindow):
     @Slot(object)
     def toggle_favorite(self, song: Song) -> None:
         self.songs = [
-            Song(item.path, item.title, not item.favorite) if item.path == song.path else item
+            replace(item, favorite=not item.favorite) if item.path == song.path else item
             for item in self.songs
         ]
         self.library_page.songs = self.songs
@@ -265,6 +290,15 @@ class MainWindow(QMainWindow):
                 0, lambda s=song, g=generation: self._play_if_current(s, g)
             )
         elif completed:
+            finished = self.current_song
+            generation = self._command_generation
+            if self.queue.repeat_mode == "one" and finished is not None:
+                QTimer.singleShot(
+                    0, lambda s=finished, g=generation: self._play_if_current(s, g)
+                )
+                return
+            if self.queue.repeat_mode == "all" and finished is not None:
+                self.queue.add_song(finished)
             next_song = self.queue.peek_next()
             if next_song:
                 generation = self._command_generation
