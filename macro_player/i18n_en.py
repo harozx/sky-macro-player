@@ -470,4 +470,122 @@ EN: dict[str, str] = {
     "Nhấn tổ hợp phím…": "Press a key combination…",
     "Nhấn tổ hợp phím muốn dùng. Backspace để xóa, Tab để chuyển ô.":
         "Press the key combination to use. Backspace clears, Tab moves to the next field.",
+
+    # --- sheet editor
+    '{step} ms · {ratio} khớp':
+        '{step} ms · {ratio} fit',
+    '1 phách':
+        '1 beat',
+    '1/{parts} phách':
+        '1/{parts} beat',
+    'Chỉnh sheet — {title}':
+        'Edit sheet — {title}',
+    'Chỉnh sheet':
+        'Edit sheet',
+    'Nguồn: {title}':
+        'Source: {title}',
+    '{count} nốt':
+        '{count} notes',
+    'lưới {grid}':
+        'grid {grid}',
+    'Bản gốc không bao giờ bị sửa. Kết quả được lưu thành một sheet mới trong thư viện.':
+        'The original is never modified. The result is saved as a new sheet in the library.',
+    'Gộp lớp 2Key/3Key về 15 phím':
+        'Merge 2Key/3Key layers onto the 15 keys',
+    'Sheet này chỉ có một lớp.':
+        'This sheet has a single layer.',
+    'Lớp':
+        'Layers',
+    ' giây':
+        ' s',
+    'Cả bài':
+        'Whole song',
+    'Từ':
+        'From',
+    'đến':
+        'to',
+    'Cắt đoạn':
+        'Section',
+    'Chỉnh nhịp theo lưới':
+        'Snap to grid',
+    'Chọn lưới nhịp':
+        'Choose the beat grid',
+    'Bước lưới tùy chỉnh':
+        'Custom grid step',
+    'Nhịp':
+        'Timing',
+    'Sheet đã khớp lưới; chỉ cần chỉnh nhịp khi đổi sang lưới thô hơn.':
+        'This sheet already fits a grid; snapping only matters for a coarser grid.',
+    "Sheet chưa khớp lưới nào rõ ràng (thường là bản ghi tay). Hãy thử từng lưới "
+    "và nghe thử trước khi lưu.":
+        "This sheet fits no clear grid (usually a hand recording). Try each grid and "
+        "listen before saving.",
+    ' bậc':
+        ' steps',
+    "1 bậc = sang phím kế bên; 7 bậc = một quãng tám. "
+    "Nốt vượt 15 phím được gập quãng tám.":
+        "1 step = the neighbouring key; 7 steps = one octave. "
+        "Notes beyond the 15 keys fold by an octave.",
+    'Dịch tông':
+        'Transpose',
+    '120% nhanh hơn 20%; thay đổi được lưu vào bản mới.':
+        '120% is 20% faster; the change is saved into the new sheet.',
+    'Nghe thử':
+        'Listen',
+    'Phát bản đã chỉnh trên bàn phím ảo, không gửi phím ra game.':
+        'Play the edited sheet on the virtual keyboard without sending keys to the game.',
+    'Dừng nghe':
+        'Stop listening',
+    'Tên bản mới':
+        'New sheet name',
+    '{title} (chỉnh)':
+        '{title} (edited)',
+    'Tên sheet mới':
+        'New sheet name',
+    'Lưu thành bản mới':
+        'Save as new sheet',
+    'Điểm bắt đầu phải nhỏ hơn điểm kết thúc.':
+        'The start must be before the end.',
+    'Nốt: {before} → {after} · Thời lượng: {length_before} → {length_after} · Khớp lưới: {grid}':
+        'Notes: {before} → {after} · Length: {length_before} → {length_after} · Grid fit: {grid}',
+    ' · Đã dời {count} nhịp':
+        ' · Moved {count} beats',
+    'Hãy đặt tên cho bản mới.':
+        'Give the new sheet a name.',
+    'Đã lưu “{name}” vào thư viện. Bạn có thể chỉnh tiếp và lưu thêm bản khác.':
+        'Saved “{name}” to the library. You can keep editing and save another version.',
+    'Đoạn đã chọn không còn nốt nào.':
+        'The selected section has no notes.',
+    'Bản mới vẫn còn lớp 2Key/3Key; bật “Gộp lớp” để phát được.':
+        'The new sheet still has 2Key/3Key layers; turn on “Merge layers” to make it playable.',
+    '{count} nốt vượt 15 phím đã được gập quãng tám.':
+        '{count} notes beyond the 15 keys were folded by an octave.',
+    '{count} nốt trùng thời điểm và phím đã được gộp.':
+        '{count} notes with the same time and key were merged.',
+    'Chỉnh sheet…':
+        'Edit sheet…',
+    'Gộp lớp, cắt đoạn, chỉnh nhịp, dịch tông, đổi tempo; lưu thành bản mới':
+        'Merge layers, cut, snap timing, transpose, change tempo; save as a new sheet',
+    'Hãy chọn một bài trong thư viện để chỉnh.':
+        'Select a song in the library to edit.',
+    'Không đọc được sheet để chỉnh: {exc}':
+        'Could not read the sheet to edit: {exc}',
+    'Hãy dừng bài đang phát trước khi nghe thử.':
+        'Stop the current song before listening.',
+    'Bản chỉnh còn phím chưa hỗ trợ: {keys}.':
+        'The edited sheet still has unsupported keys: {keys}.',
+    'Bản chỉnh':
+        'Edited sheet',
+    'Không thể lưu bản chỉnh: {exc}':
+        'Could not save the edited sheet: {exc}',
+    'Đã lưu bản chỉnh “{name}”.':
+        'Saved the edited sheet “{name}”.',
+    'Chỉnh sheet bài đang chọn':
+        'Edit the selected sheet',
+    'Đóng':
+        'Close',
+    '{before} → {after}':
+        '{before} → {after}',
+    'chưa rõ':
+        'unknown',
 }

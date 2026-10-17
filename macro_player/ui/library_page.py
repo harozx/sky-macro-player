@@ -69,6 +69,7 @@ class LibraryPage(QWidget):
     favorite_requested = Signal(object)
     play_all_requested = Signal(list, bool)
     import_requested = Signal()
+    edit_requested = Signal(object)
     layer_policy_changed = Signal(object, object)
 
     def __init__(self, songs: list[Song]) -> None:
@@ -160,7 +161,10 @@ class LibraryPage(QWidget):
             tr("Thêm hàng chờ")), QPushButton(tr("Đổi trạng thái yêu thích"))
         play.setToolTip("Enter")
         queue.setToolTip("Ctrl+Enter")
-        for button in (play, queue, favorite):
+        self.edit_button = QPushButton(tr("Chỉnh sheet…"))
+        self.edit_button.setToolTip(tr("Gộp lớp, cắt đoạn, chỉnh nhịp, dịch tông, đổi tempo; "
+                                       "lưu thành bản mới"))
+        for button in (play, queue, favorite, self.edit_button):
             actions.addWidget(button)
         actions.addStretch(1)
         layout.addLayout(actions)
@@ -186,6 +190,7 @@ class LibraryPage(QWidget):
         play.clicked.connect(lambda: self._emit(self.play_requested))
         queue.clicked.connect(lambda: self._emit(self.queue_requested))
         favorite.clicked.connect(lambda: self._emit(self.favorite_requested))
+        self.edit_button.clicked.connect(lambda: self._emit(self.edit_requested))
         self.import_button.clicked.connect(self.import_requested)
         self.play_all_button.clicked.connect(
             lambda: self.play_all_requested.emit(self.visible_songs(), False))
