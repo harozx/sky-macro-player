@@ -80,6 +80,7 @@ class LibraryPage(QWidget):
         header.addWidget(self.import_button)
         self.summary = QLabel()
         self.summary.setObjectName("muted")
+        self.eyebrow = eyebrow
         layout.addWidget(eyebrow)
         layout.addLayout(header)
         layout.addWidget(self.summary)
@@ -290,6 +291,9 @@ class LibraryPage(QWidget):
 
     def resizeEvent(self, event) -> None:
         super().resizeEvent(event)
+        roomy = self.height() >= 470
+        self.eyebrow.setVisible(roomy)
+        self.summary.setVisible(roomy)
         self._show_details()
 
     def _show_details(self) -> None:

@@ -35,3 +35,6 @@ logs/*.log
 .coverage
 htmlcov/
 ui-preview*.png
+
+# Packaging output
+build/pyinstaller/

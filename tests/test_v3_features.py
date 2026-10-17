@@ -558,3 +558,25 @@ def test_loop_session_repeats_until_stop(qtbot, tmp_path, monkeypatch):
     assert blocker.args == [False]
     assert ["i"] not in pressed
     assert pressed[:4] == [["y"], ["u"], ["y"], ["u"]]
+
+
+# ---------------------------------------------------------------- updates
+def test_version_comparison():
+    from macro_player.updates import is_newer, parse_version
+    assert parse_version("v3.0.1") == (3, 0, 1)
+    assert is_newer("v3.0.0", "2.1.0")
+    assert not is_newer("v2.1.0", "2.1.0")
+    assert not is_newer("garbage", "2.1.0")
+
+
+def test_update_checker_parses_release_payload(qtbot):
+    from macro_player.updates import RELEASES_PAGE, UpdateChecker
+    checker = UpdateChecker()
+    found, failed = [], []
+    checker.update_available.connect(lambda tag, url: found.append((tag, url)))
+    checker.failed.connect(failed.append)
+    checker.handle_payload(json.dumps({"tag_name": "v99.0.0",
+                                       "html_url": "https://evil.example/x"}).encode())
+    assert found == [("v99.0.0", RELEASES_PAGE)]
+    checker.handle_payload(b"{")
+    assert failed

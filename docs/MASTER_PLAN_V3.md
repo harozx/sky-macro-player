@@ -8,6 +8,21 @@ Ngày: 17/10/2026. Tài liệu này kế thừa `IMPROVEMENT_PLAN.md` và
 
 ---
 
+## 0. Tiến độ (cập nhật 17/10/2026)
+
+| Giai đoạn | Trạng thái | Ghi chú |
+| --- | --- | --- |
+| 0 Bảo toàn | Xong | Commit v2, tag `v2.0.0`, LICENSE MIT |
+| 1 Kiến trúc | Xong | Một `MainWindow` trong `macro_player/ui/`, một controller, một parser; xóa `sky_ui_*`; dữ liệu ở `%LOCALAPPDATA%`. **Chưa** thêm ruff/mypy vào CI |
+| 2 Tiện lợi cốt lõi | Xong | F1–F10 |
+| 3 Nâng cao | Xong một phần | F11–F13, F15–F20 xong. F14: chọn cửa sổ game bất kỳ theo `.exe`; chưa có profile Heartopia đã xác minh trong game thật |
+| 4 UI/UX | Xong một phần | Đủ trạng thái chính, Ctrl+K, mini 2 hàng, DPI 125–200% (chụp với `QT_SCALE_FACTOR`). **Chưa** làm song ngữ VI/EN; chưa thử bàn phím/DPI trên màn hình thật |
+| 5 Phát hành | Xong phần tự động | PyInstaller one-folder + zip portable, script Inno Setup, CI build + smoke test + release khi push tag. Bộ cài chỉ build trên CI (máy dev không có Inno Setup) |
+
+Kiểm chứng: 159 test tự động đạt; bản `.exe` chạy `--smoke-test` từ thư mục
+riêng, tự chép 118 sheet và nạp được âm thanh xem trước. Chưa kiểm thử phát
+thật trong Sky/Heartopia.
+
 ## 1. Hiện trạng đã kiểm chứng
 
 | Hạng mục | Kết quả |

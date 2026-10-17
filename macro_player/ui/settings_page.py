@@ -39,6 +39,8 @@ class SettingsPage(QWidget):
     diagnostics_requested = Signal()
     onboarding_requested = Signal()
     open_data_requested = Signal()
+    check_updates_changed = Signal(bool)
+    check_now_requested = Signal()
 
     def __init__(self) -> None:
         super().__init__()
@@ -126,12 +128,15 @@ class SettingsPage(QWidget):
         layout.addWidget(frame)
 
         frame, section = _section("Hỗ trợ")
+        self.check_updates = QCheckBox("Tự kiểm tra bản mới trên GitHub khi mở ứng dụng")
+        section.addWidget(self.check_updates)
         support = QGridLayout()
         self.onboarding_button = QPushButton("Mở hướng dẫn thiết lập")
         self.diagnostics_button = QPushButton("Xuất báo cáo chẩn đoán…")
         self.open_data_button = QPushButton("Mở thư mục dữ liệu")
+        self.check_now_button = QPushButton("Kiểm tra cập nhật")
         for index, button in enumerate((self.onboarding_button, self.diagnostics_button,
-                                        self.open_data_button)):
+                                        self.open_data_button, self.check_now_button)):
             button.setProperty("outline", True)
             support.addWidget(button, index // 2, index % 2)
         section.addLayout(support)
@@ -157,6 +162,8 @@ class SettingsPage(QWidget):
         self.diagnostics_button.clicked.connect(self.diagnostics_requested)
         self.onboarding_button.clicked.connect(self.onboarding_requested)
         self.open_data_button.clicked.connect(self.open_data_requested)
+        self.check_updates.toggled.connect(self.check_updates_changed)
+        self.check_now_button.clicked.connect(self.check_now_requested)
 
     def _countdown(self, value: int) -> None:
         self.countdown_value.setText(f"{value} giây")

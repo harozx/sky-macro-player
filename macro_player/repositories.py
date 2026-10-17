@@ -184,6 +184,7 @@ class SettingsRepository:
         mini_position = raw.get("mini_position")
         # Users upgrading from v3 already know the app; skip the first-run guide.
         first_run_completed = raw.get("first_run_completed", version < 4)
+        check_updates = raw.get("check_updates", False)
 
         if not isinstance(hotkeys, Mapping):
             raise ValidationError("must be a JSON object", field="hotkeys")
@@ -261,6 +262,7 @@ class SettingsRepository:
             focus_target_exe=focus_target_exe.strip() if focus_target_exe else None,
             mini_position=checked_position,
             first_run_completed=_strict_bool(first_run_completed, "first_run_completed"),
+            check_updates=_strict_bool(check_updates, "check_updates"),
         )
 
 

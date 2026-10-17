@@ -1,28 +1,52 @@
 # Sky Macro Player
 
 Sky Macro Player is a Windows music-sheet player for **Sky: Children of the
-Light** and **Heartopia**. Version 2 uses the PySide6 **Sky Instrument Console**
-interface, an isolated Python environment, validated sheet/config repositories,
-and a deterministic playback engine.
+Light** and **Heartopia**. It plays community sheets on the in-game instrument
+through your keyboard, with a calm PySide6 "instrument console" interface, a
+deterministic playback engine, and safety features that stop input as soon as
+the game loses focus.
 
 ## Highlights
 
-- Unified library with accent-insensitive Vietnamese search, sorting, and
-  All / Favorites / Playable filters.
-- Play all, shuffle, repeat queue, and repeat one song.
-- Queue and playback dock available from every screen.
-- Mini overlay with play/pause, next, and emergency stop controls.
-- Note Runway visualization tied to playback state.
-- Editable global hotkeys and eight song slots.
-- Optional Sky focus lock enforced inside the keyboard playback path.
-- Single-instance startup so global hotkeys cannot be installed twice.
-- Config migration from the previous Tkinter version.
-- UTF-8 and UTF-16 `.txt`/`.json` sheet support.
-- Absolute monotonic scheduling without cumulative key-hold drift.
-- Per-playback cancellation events and guaranteed best-effort key release.
-- Local rotating logs with hotkey values redacted.
+- **Find songs fast:** search without typing accents (`bang khuang` finds
+  *Bâng khuâng*), sort by name, length, newest, most played or recently
+  played, and filter All / Favorites / Playable / Recent.
+- **Song details:** length, note count, notes per second with an
+  Easy / Medium / Hard hint, and how many times you played it.
+- **Queue and playlists:** play all, shuffle, repeat queue or one song,
+  clear with undo, and save the queue as a named playlist.
+- **Practice tools:** live speed 0.5×–1.5× (remembered per song), start from
+  any point by clicking the Note Runway, and loop an A–B section.
+- **Preview mode:** play a sheet on a virtual 15-key grid with generated
+  tones. Nothing is sent to the game or any other application.
+- **Add sheets in the app:** drag-and-drop `.txt`/`.json` files or folders, or
+  use **Nhập sheet…** (Ctrl+O). Each file is validated first; duplicates can be
+  renamed, overwritten or skipped. The library refreshes when the folder
+  changes.
+- **2Key/3Key sheets:** choose per song to merge every layer onto the 15 keys,
+  play layer 1 only, or keep it blocked. Nothing is changed silently.
+- **Focus lock:** playback only types into the game window. Sky is detected by
+  `Sky.exe`; you can pick another game window (for example Heartopia).
+- **Hotkeys:** record global shortcuts by pressing them; conflicts with the
+  music keys are rejected. Eight song slots.
+- **Everyday comfort:** mini player, system tray menu with notifications,
+  optional close-to-tray, Ctrl+K command palette, first-run guide, custom
+  15-key layout, optional update check, and a diagnostics export.
 
-## Install and run
+## Install
+
+### Installer or portable build (recommended)
+
+Download from [Releases](https://github.com/harozx/macro_project/releases):
+
+- `SkyMacroPlayer-Setup-<version>.exe` installs for your Windows user only,
+  without Administrator rights, and adds Start-menu shortcuts.
+- `SkyMacroPlayer-<version>-portable.zip`: unzip anywhere and run
+  `SkyMacroPlayer.exe`.
+
+Python is not required for these builds.
+
+### From source
 
 Requirements: Windows 10/11 and Python 3.10 or newer.
 
@@ -38,83 +62,90 @@ python -m venv .venv
 .\.venv\Scripts\python.exe gui_qt.py
 ```
 
-The launcher no longer downloads or installs Python globally. If Python is not
-available, setup shows the official download page and exits safely.
-
 ## Using the console
 
-- **Thư viện:** search without typing accents (`bang khuang` finds
-  *Bâng khuâng*), sort by name, length, or newest, filter favorites or
-  playable sheets, and see each song's length. **Phát tất cả** and
-  **Trộn bài** replace the queue with the songs currently shown.
-- **Hàng chờ:** drag to reorder, remove an item, or double-click to play it.
-  **Trộn** shuffles the queue, **Xóa hết** clears it, and **Hoàn tác**
-  restores the previous queue. **Lặp** cycles Off → Repeat queue → Repeat
-  one song; Stop always ends repeating.
-  On a narrow window, use **Hiện hàng chờ** in the navigation rail.
-- **Phím tắt:** edit pause, stop, next, and eight song-slot bindings, then press
-  **Lưu và áp dụng**.
-- **Cài đặt:** choose the in-game keyboard layout, countdown, reduced motion,
-  mini-player always-on-top behavior, and **Bật chế độ khóa vào cửa sổ Sky**.
-- **Thu nhỏ:** opens the compact overlay while leaving playback active.
+- **Thư viện:** search, sort and filter; **Enter** plays the selected song,
+  **Ctrl+Enter** adds it to the queue. The detail panel shows the song's
+  numbers and, for layered sheets, the 2Key/3Key choice.
+- **Thanh phát:** Play/Pause (Space), Next (Ctrl+→), Stop (Esc), Mini (Ctrl+M),
+  speed, **A**/**B**/**Bỏ A–B**, **Xem trước** and **Bàn phím**. Click the Note
+  Runway while stopped or paused to choose where playback starts.
+- **Hàng chờ:** drag to reorder, double-click to play, **Trộn**, **Xóa hết**
+  with **Hoàn tác**, **Lặp** (Off → Queue → One song), and **Playlist** to save,
+  open or delete playlists. Stop always ends repeating.
+- **Phím tắt:** click a field and press the combination. Save with
+  **Lưu và áp dụng**; the previous hotkeys stay active if the new ones fail.
+- **Cài đặt:** in-game layout (old, new or custom), countdown, reduced motion,
+  mini player on top, close-to-tray, preview sound, focus lock and target
+  window, update check, guide, diagnostics, and the data folder.
+- **Bảng lệnh (Ctrl+K):** type part of a song name or a command and press Enter.
 
-Legacy defaults remain `F10` for stop and `F11` for next. Existing slot and
-pause-key assignments in `hotkeys.json` are migrated automatically.
+Legacy defaults remain `F10` for stop and `F11` for next.
 
-### Sky focus lock
+### Focus lock
 
-Enable **Bật chế độ khóa vào cửa sổ Sky** in Settings. Before playback starts,
-the app finds and activates the exact Sky game window. The target is pinned by
-window handle, process ID, title, and process path for that playback session. If
-another window gets keyboard focus, the playback engine stops new key presses,
-releases held keys, and waits safely.
-Returning to Sky resumes playback when **Tự tiếp tục khi quay lại Sky** is on.
-Use **Kiểm tra cửa sổ Sky** to confirm detection before playing.
+Enable **Bật chế độ khóa vào cửa sổ game** in Settings. Before playback starts
+the app activates the game window and pins it by window handle, process ID and
+executable path. If another window gets keyboard focus, the engine stops new key
+presses, releases held keys and waits. Returning to the game resumes playback
+when **Tự tiếp tục khi quay lại game** is on.
 
-Windows may occasionally prevent applications from changing the foreground
-window. In that case, click Sky yourself and press Play again. The feature does
-not inject input into a background game and does not bypass Windows focus rules.
+Windows may occasionally refuse to change the foreground window; click the game
+yourself and press Play again. The app never injects input into a background
+window and does not bypass Windows focus rules. Checking focus and sending a key
+are separate Windows calls, so a key pressed in the same instant as Alt+Tab can
+still reach the other window.
 
-The bundled library currently contains 118 structurally valid sheets: 112 are
-playable with the available layouts and 6 contain unsupported `2Key*` or
-`3Key*` notes. Those six are marked **Không hỗ trợ** and blocked before the
-countdown. A verified mapping is still needed before those layers can be played
-faithfully.
+### Bundled sheets
+
+118 sheets are included. 112 play with the standard layouts; 6 contain
+`2Key*`/`3Key*` layers and stay blocked until you choose a layer policy for
+them in the song details.
 
 ## Data and diagnostics
 
-- Put sheet files in `sheets/`.
-- User settings remain in `hotkeys.json`.
-- Favorites remain in `favorites.json` and are rewritten atomically.
-- Logs are written under `%LOCALAPPDATA%\SkyMacroPlayer\logs`.
+All user data lives in `%LOCALAPPDATA%\SkyMacroPlayer`:
 
-Runtime data files are ignored by Git. Logs do not intentionally record pressed
-keys or configured hotkey values.
+- `sheets\`: your library. Bundled sheets are copied here once; a sheet you
+  delete is not restored, and new bundled sheets from updates are added.
+- `hotkeys.json` (settings), `favorites.json`, `library_state.json` (history,
+  play counts, per-song choices, playlists), and `logs\`.
 
-## Development checks
+Settings and favorites from older versions (next to the app or in
+`%LOCALAPPDATA%\SkyInstrumentConsole`) are copied once and never overwritten.
+Unreadable files are backed up before anything new is written. Logs and
+diagnostic reports do not record pressed keys or hotkey values. Uninstalling
+keeps this folder.
+
+## Development
 
 ```powershell
 $env:QT_QPA_PLATFORM = "offscreen"
 .\.venv\Scripts\python.exe -m pytest -q
-.\.venv\Scripts\python.exe -m compileall -q macro_player *.py
+.\.venv\Scripts\python.exe -m pip install -r requirements-build.txt
+.\.venv\Scripts\python.exe packaging\build_exe.py --zip
+.\dist\SkyMacroPlayer\SkyMacroPlayer.exe --smoke-test
 ```
 
-Windows CI runs Python 3.10, 3.11, 3.12, and 3.13. The suite covers playback
-timing and cancellation, focus loss inside chords, key cleanup, shutdown,
-single-instance startup, malformed sheets, compatibility auditing, config
-migration, atomic persistence, UI state, hotkey rollback, and logging.
+Tests never touch real user data: `tests/conftest.py` points
+`SKY_MACRO_DATA_DIR` at a temporary folder, and no test uses the real keyboard.
+CI runs the suite on Windows with Python 3.10–3.13, then builds the app, runs
+the packaged smoke test, and builds the Inno Setup installer. Pushing a `v*`
+tag publishes both files to a GitHub release.
 
 ## Architecture
 
-- `macro_core.py`: validated deterministic keyboard playback.
-- `macro_player/domain.py`: immutable domain models.
-- `macro_player/repositories.py`: settings, favorites, and sheet persistence.
-- `macro_player/logging_config.py`: privacy-conscious rotating logs and crash hooks.
-- `sky_ui_core.py`: tokens, UI models, worker/controller primitives, Note Runway.
-- `sky_ui_integrated.py`: repositories, settings, global hotkeys, lifecycle.
-- `sky_ui_final.py`: editable hotkeys and safe application shutdown.
-- `gui_qt.py`: production entry point.
-- `gui.py`: preserved legacy Tkinter interface; no longer used by the launcher.
+- `macro_player/engine.py`: deterministic keyboard playback (speed, sections,
+  focus guard, guaranteed key release). `macro_core.py` re-exports it.
+- `macro_player/library.py`: sheet discovery, metadata, layer policies, import.
+- `macro_player/playback.py`: one Qt controller and worker thread per session.
+- `macro_player/hotkeys.py`, `window_focus.py`: global hotkeys and focus lock.
+- `macro_player/domain.py`, `repositories.py`, `paths.py`: models, validated
+  JSON persistence, data locations.
+- `macro_player/ui/`: main window, pages, dock, mini player, dialogs, tray.
+- `macro_player/app.py`: entry point, single instance; `gui_qt.py` calls it.
+- `packaging/`: PyInstaller build script and Inno Setup installer.
+- `legacy/gui.py`: the old Tkinter interface, kept for reference only.
 
 The visual and interaction contract is documented in `docs/UI_DESIGN.md`.
 

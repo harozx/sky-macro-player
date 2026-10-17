@@ -37,6 +37,7 @@ class Settings:
     focus_target_exe: str | None = None
     mini_position: Tuple[int, int] | None = None
     first_run_completed: bool = False
+    check_updates: bool = False
 
     def __post_init__(self) -> None:
         # Prevent callers from mutating a frozen Settings through its mapping.
@@ -63,6 +64,7 @@ class Settings:
             "focus_target_exe": self.focus_target_exe,
             "mini_position": list(self.mini_position) if self.mini_position else None,
             "first_run_completed": self.first_run_completed,
+            "check_updates": self.check_updates,
         }
 
 

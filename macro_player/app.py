@@ -10,7 +10,7 @@ from PySide6.QtCore import QLockFile, QStandardPaths, Qt
 from PySide6.QtNetwork import QLocalServer, QLocalSocket
 from PySide6.QtWidgets import QApplication, QMessageBox, QWidget
 
-from . import paths
+from . import __version__, paths
 from .logging_config import configure_logging
 
 INSTANCE_SERVER = "sky-macro-player-v3"
@@ -63,7 +63,28 @@ def install_instance_server(window: QWidget, server_name: str | None = None) -> 
     return server
 
 
-def main() -> int:
+def smoke_test(app: QApplication) -> int:
+    """Build the real window without hooks or tray, then close it (CI/packaging)."""
+    from .hotkeys import DisabledHotkeyService
+    from .ui.main_window import MainWindow
+
+    window = MainWindow(hotkey_service=DisabledHotkeyService(), use_tray=False)
+    window.show()
+    app.processEvents()
+    songs = len(window.songs)
+    sound = window.synth._load()
+    window.close()
+    app.processEvents()
+    print(f"smoke-test ok: {songs} songs, preview sound {'on' if sound else 'off'}, "
+          f"version {__version__}")
+    return 0 if songs else 3
+
+
+def main(argv: list[str] | None = None) -> int:
+    argv = list(sys.argv if argv is None else argv)
+    if "--version" in argv:
+        print(__version__)
+        return 0
     logger = configure_logging(data_dir=paths.user_data_dir())
     logger.info("Starting Sky Macro Player")
     try:
@@ -75,10 +96,12 @@ def main() -> int:
     QApplication.setHighDpiScaleFactorRoundingPolicy(
         Qt.HighDpiScaleFactorRoundingPolicy.PassThrough
     )
-    app = QApplication(sys.argv)
+    app = QApplication(argv)
     app.setApplicationName("Sky Macro Player")
     app.setOrganizationName("Sky Macro Player")
     app.setStyle("Fusion")
+    if "--smoke-test" in argv:
+        return smoke_test(app)
     app.setQuitOnLastWindowClosed(False)
     instance_lock = acquire_instance_lock()
     if instance_lock is None:

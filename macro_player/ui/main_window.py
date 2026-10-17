@@ -31,6 +31,7 @@ from ..hotkeys import (
 from ..library import Library, Song
 from ..playback import PlaybackController, load_song_events
 from ..repositories import LibraryStateRepository, RepositoryError, SettingsRepository
+from ..updates import UpdateChecker
 from ..window_focus import (
     FocusService, WindowInfo, WindowsFocusService, pickable_windows,
 )
@@ -62,7 +63,8 @@ class MainWindow(QMainWindow):
         super().__init__()
         self.setWindowTitle("Sky Macro Player")
         self.setWindowIcon(app_icon())
-        self.setMinimumSize(820, 600)
+        # 960×540 is the logical size of a 1080p screen at 200% scaling.
+        self.setMinimumSize(760, 520)
         self.resize(1240, 800)
         self.setStyleSheet(STYLE)
         self.setAcceptDrops(True)
@@ -162,8 +164,16 @@ class MainWindow(QMainWindow):
                              f"{self.state_error}")
         if self.settings_error:
             self._show_error(self.settings_error)
+        self.updates = UpdateChecker(self)
+        self.updates.update_available.connect(self._update_available)
+        self.updates.up_to_date.connect(
+            lambda: self.dock.set_status(f"Đang dùng bản mới nhất ({__version__}).", "success"))
+        self.updates.failed.connect(
+            lambda message: self.dock.set_status(f"Không kiểm tra được cập nhật: {message}"))
         if show_onboarding and not self.settings.first_run_completed:
             QTimer.singleShot(300, self.run_onboarding)
+        if show_onboarding and self.settings.check_updates:
+            QTimer.singleShot(2000, self.updates.check)
 
     # ------------------------------------------------------------------ UI
     def _build_ui(self) -> None:
@@ -311,6 +321,9 @@ class MainWindow(QMainWindow):
         sp.reset_target_requested.connect(lambda: self._set_target_exe(None))
         sp.diagnostics_requested.connect(self.export_diagnostics)
         sp.onboarding_requested.connect(self.run_onboarding)
+        sp.check_updates_changed.connect(
+            lambda value: self._save_or_restore(check_updates=value))
+        sp.check_now_requested.connect(lambda: self.updates.check())
         sp.open_data_requested.connect(
             lambda: QDesktopServices.openUrl(QUrl.fromLocalFile(str(paths.user_data_dir()))))
         self.hotkeys_page.save_requested.connect(self._save_hotkeys)
@@ -1046,7 +1059,7 @@ class MainWindow(QMainWindow):
         page = self.settings_page
         widgets = (page.key_layout, page.countdown, page.always_on_top, page.reduced_motion,
                    page.minimize_to_tray, page.preview_sound, page.focus_lock_checkbox,
-                   page.resume_focus_checkbox)
+                   page.resume_focus_checkbox, page.check_updates)
         blockers = [QSignalBlocker(widget) for widget in widgets]
         try:
             index = page.key_layout.findData(self.settings.keyboard_layout)
@@ -1060,6 +1073,7 @@ class MainWindow(QMainWindow):
             page.preview_sound.setChecked(self.settings.preview_sound)
             page.focus_lock_checkbox.setChecked(self.settings.focus_lock_enabled)
             page.resume_focus_checkbox.setChecked(self.settings.resume_on_sky_focus)
+            page.check_updates.setChecked(self.settings.check_updates)
         finally:
             del blockers
         page.set_target(self.settings.focus_target_exe)
@@ -1187,6 +1201,17 @@ class MainWindow(QMainWindow):
                              "Hãy gán lại bài bằng đường dẫn đầy đủ.")
         else:
             self._show_error(f"Không tìm thấy bài đã gán cho phím {index + 1}: {selected}")
+
+    def _update_available(self, tag: str, url: str) -> None:
+        self.dock.set_status(f"Có bản mới {tag}. Mở Cài đặt → Hỗ trợ hoặc trang Releases để tải.",
+                             "info")
+        self._latest_release_url = url
+        if self.tray is not None:
+            self.tray.notify("Có bản mới", f"Sky Macro Player {tag} đã phát hành.")
+        answer = QMessageBox.question(
+            self, "Có bản mới", f"Sky Macro Player {tag} đã phát hành. Mở trang tải về?")
+        if answer == QMessageBox.StandardButton.Yes:
+            QDesktopServices.openUrl(QUrl(url))
 
     # ----------------------------------------------- guide, palette, report
     def run_onboarding(self) -> None:

@@ -55,6 +55,24 @@ Settings and hotkey forms scroll vertically when height is constrained. At
 narrow widths the queue may collapse, but the navigation rail always exposes a
 control to reopen it.
 
+### v3 additions
+
+- **Dock tools** under the runway: speed (0.5×–1.5×), A / B / clear section
+  loop, Preview, Keyboard. On narrow windows (< 900 px) the runway and its A–B
+  controls are hidden together; speed and Preview stay.
+- **Key strip**: an optional 3×5 grid of the in-game keys between the pages and
+  the dock. Lit cells use Sunset Apricot fill plus bold text, so state is not
+  carried by color alone.
+- **Preview mode** prefixes every status with “Xem trước” and never sends
+  operating-system input. It cannot be toggled during a session.
+- **Song detail panel** below the list (hidden under 520 px height) shows
+  length, notes, density/difficulty, play count and the 2Key/3Key choice.
+- **Library header** hides its eyebrow and summary under 470 px height so the
+  list keeps room at 200% scaling (960×540 logical on a 1080p screen). The
+  window minimum is 760×520.
+- **Dialogs** (import preview, first-run guide, command palette, window picker)
+  reuse the same tokens; primary actions use Sunset Apricot.
+
 ## Interaction principles
 
 - Play, pause, stop, and next remain one action away from every screen.
@@ -75,7 +93,7 @@ playing, paused, stopping, skipped, completed, queue complete, rebinding, hotkey
 conflict, missing file, unsupported sheet, focus-lock target missing, focus-paused,
 refocused, and unexpected playback error.
 
-## Sky focus lock
+## Focus lock (Sky by default, or a user-chosen game)
 
 - Focus lock is opt-in and names its safety behavior beside the toggle.
 - Playback begins only after the target Sky window is found and activated.
