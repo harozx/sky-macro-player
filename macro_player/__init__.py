@@ -1,6 +1,6 @@
 """Typed domain and persistence layer for the macro player."""
 
-__version__ = "2.0.0"
+__version__ = "2.1.0"
 
 from .domain import FavoriteEntry, NoteEvent, Settings, SheetCompatibility, SongSheet
 from .repositories import (

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "sky-macro-player"
-version = "2.0.0"
+version = "2.1.0"
 description = "Desktop music-sheet player for Sky"
 readme = "README.md"
 requires-python = ">=3.10"
