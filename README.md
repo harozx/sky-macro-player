@@ -115,9 +115,14 @@ still reach the other window.
 
 ### Bundled sheets
 
-118 sheets are included. 112 play with the standard layouts; 6 contain
+125 sheets are included. 119 play with the standard layouts; 6 contain
 `2Key*`/`3Key*` layers and stay blocked until you choose a layer policy for
-them in the song details.
+them in the song details (or merge them with the sheet editor). Seven of them
+were written for this app from public-domain melodies: *Kìa con bướm vàng*,
+*Twinkle Twinkle Little Star*, *Ode to Joy*, *Jingle Bells*, *Minuet in G*,
+*Mary Had a Little Lamb* and *London Bridge Is Falling Down*. They are
+melody-only and fully on the beat grid; existing users get them automatically
+on the next start.
 
 ## Data and diagnostics
 

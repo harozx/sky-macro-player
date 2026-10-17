@@ -260,3 +260,15 @@ def test_batch_process_empty_folder_explains(window, tmp_path):
     empty.mkdir()
     assert window.batch_process([empty], confirm=False) == []
     assert ".txt/.json" in window.dock.status.text()
+
+
+def test_bundled_public_domain_sheets_are_playable_and_on_grid(tmp_path):
+    from macro_player.paths import bundled_sheets_dir
+    library = Library(bundled_sheets_dir(), tmp_path / "fav.json")
+    authored = [song for song in library.scan(KEYS)
+                if "public domain" in str(library.load(song.relative).metadata.get("author"))]
+    assert len(authored) == 7
+    for song in authored:
+        events = normalize((n.time, n.keys) for n in library.load(song.relative).notes)
+        assert song.playable, song.title
+        assert classify_timing(events)[0] == "exact", song.title

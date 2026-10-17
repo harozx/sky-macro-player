@@ -62,7 +62,7 @@ jobs:
         run: |
           python -m pip wheel . --no-deps --wheel-dir dist
           $wheel = Get-ChildItem dist\*.whl | Select-Object -First 1
-          python -c "import sys, zipfile; z=zipfile.ZipFile(sys.argv[1]); names=z.namelist(); sheets=[n for n in names if '/sky-macro-player/sheets/' in n]; assert len(sheets)==118, len(sheets); assert any(n.endswith('entry_points.txt') for n in names); print('artifact sheets:', len(sheets))" $wheel.FullName
+          python -c "import sys, zipfile; z=zipfile.ZipFile(sys.argv[1]); names=z.namelist(); sheets=[n for n in names if '/sky-macro-player/sheets/' in n]; import pathlib; expected=len([p for p in pathlib.Path('sheets').iterdir() if p.suffix.lower() in ('.json', '.txt')]); assert len(sheets)==expected, (len(sheets), expected); assert any(n.endswith('entry_points.txt') for n in names); print('artifact sheets:', len(sheets))" $wheel.FullName
 
   package:
     name: Windows app and installer
@@ -98,7 +98,8 @@ jobs:
           $process = Start-Process dist\SkyMacroPlayer\SkyMacroPlayer.exe -ArgumentList "--smoke-test" -Wait -PassThru
           if ($process.ExitCode -ne 0) { throw "smoke test failed: $($process.ExitCode)" }
           $count = (Get-ChildItem "$env:SKY_MACRO_DATA_DIR\sheets" -Filter *.* -File | Where-Object { $_.Extension -in ".txt", ".json" }).Count
-          if ($count -ne 118) { throw "expected 118 seeded sheets, found $count" }
+          $expected = (Get-ChildItem sheets -File | Where-Object { $_.Extension -in ".txt", ".json" }).Count
+          if ($count -ne $expected) { throw "expected $expected seeded sheets, found $count" }
 
       - name: Build installer
         shell: pwsh

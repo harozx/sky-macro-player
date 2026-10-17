@@ -1,0 +1,180 @@
+[
+ {
+  "name": "Twinkle Twinkle Little Star",
+  "author": "Sky Macro Player (public domain melody)",
+  "isComposed": true,
+  "bpm": 100,
+  "bitsPerPage": 16,
+  "pitchLevel": 0,
+  "songNotes": [
+   {
+    "time": 0,
+    "key": "1Key7"
+   },
+   {
+    "time": 600,
+    "key": "1Key7"
+   },
+   {
+    "time": 1200,
+    "key": "1Key11"
+   },
+   {
+    "time": 1800,
+    "key": "1Key11"
+   },
+   {
+    "time": 2400,
+    "key": "1Key12"
+   },
+   {
+    "time": 3000,
+    "key": "1Key12"
+   },
+   {
+    "time": 3600,
+    "key": "1Key11"
+   },
+   {
+    "time": 4800,
+    "key": "1Key10"
+   },
+   {
+    "time": 5400,
+    "key": "1Key10"
+   },
+   {
+    "time": 6000,
+    "key": "1Key9"
+   },
+   {
+    "time": 6600,
+    "key": "1Key9"
+   },
+   {
+    "time": 7200,
+    "key": "1Key8"
+   },
+   {
+    "time": 7800,
+    "key": "1Key8"
+   },
+   {
+    "time": 8400,
+    "key": "1Key7"
+   },
+   {
+    "time": 9600,
+    "key": "1Key11"
+   },
+   {
+    "time": 10200,
+    "key": "1Key11"
+   },
+   {
+    "time": 10800,
+    "key": "1Key10"
+   },
+   {
+    "time": 11400,
+    "key": "1Key10"
+   },
+   {
+    "time": 12000,
+    "key": "1Key9"
+   },
+   {
+    "time": 12600,
+    "key": "1Key9"
+   },
+   {
+    "time": 13200,
+    "key": "1Key8"
+   },
+   {
+    "time": 14400,
+    "key": "1Key11"
+   },
+   {
+    "time": 15000,
+    "key": "1Key11"
+   },
+   {
+    "time": 15600,
+    "key": "1Key10"
+   },
+   {
+    "time": 16200,
+    "key": "1Key10"
+   },
+   {
+    "time": 16800,
+    "key": "1Key9"
+   },
+   {
+    "time": 17400,
+    "key": "1Key9"
+   },
+   {
+    "time": 18000,
+    "key": "1Key8"
+   },
+   {
+    "time": 19200,
+    "key": "1Key7"
+   },
+   {
+    "time": 19800,
+    "key": "1Key7"
+   },
+   {
+    "time": 20400,
+    "key": "1Key11"
+   },
+   {
+    "time": 21000,
+    "key": "1Key11"
+   },
+   {
+    "time": 21600,
+    "key": "1Key12"
+   },
+   {
+    "time": 22200,
+    "key": "1Key12"
+   },
+   {
+    "time": 22800,
+    "key": "1Key11"
+   },
+   {
+    "time": 24000,
+    "key": "1Key10"
+   },
+   {
+    "time": 24600,
+    "key": "1Key10"
+   },
+   {
+    "time": 25200,
+    "key": "1Key9"
+   },
+   {
+    "time": 25800,
+    "key": "1Key9"
+   },
+   {
+    "time": 26400,
+    "key": "1Key8"
+   },
+   {
+    "time": 27000,
+    "key": "1Key8"
+   },
+   {
+    "time": 27600,
+    "key": "1Key7"
+   }
+  ]
+ }
+]
