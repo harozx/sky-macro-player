@@ -1,0 +1,57 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Python ${{ matrix.python-version }}
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.11", "3.12", "3.13"]
+
+    env:
+      QT_QPA_PLATFORM: offscreen
+      PYTHONUTF8: "1"
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+          cache-dependency-path: |
+            requirements.txt
+            requirements-dev.txt
+
+      - name: Install dependencies
+        run: python -m pip install --requirement requirements-dev.txt
+
+      - name: Validate project configuration
+        shell: pwsh
+        run: |
+          python -c "import pathlib, sys; name = 'tomllib' if sys.version_info >= (3, 11) else 'pip._vendor.tomli'; tomllib = __import__(name, fromlist=['loads']); tomllib.loads(pathlib.Path('pyproject.toml').read_text(encoding='utf-8')); print('pyproject.toml: OK')"
+
+      - name: Compile Python sources
+        run: python -m compileall -q macro_core.py gui_qt.py sky_ui_core.py sky_ui_shell.py sky_ui_window.py sky_ui_integrated.py sky_ui_polish.py sky_ui_final.py macro_player tests
+
+      - name: Run tests
+        run: python -m pytest
+
+      - name: Build and inspect wheel artifact
+        if: matrix.python-version == '3.11'
+        shell: pwsh
+        run: |
+          python -m pip wheel . --no-deps --wheel-dir dist
+          $wheel = Get-ChildItem dist\*.whl | Select-Object -First 1
+          python -c "import sys, zipfile; z=zipfile.ZipFile(sys.argv[1]); names=z.namelist(); sheets=[n for n in names if '/sky-macro-player/sheets/' in n]; assert len(sheets)==118, len(sheets); assert any(n.endswith('entry_points.txt') for n in names); print('artifact sheets:', len(sheets))" $wheel.FullName

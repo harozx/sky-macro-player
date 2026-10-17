@@ -1,69 +1,76 @@
 @echo off
-chcp 65001 > nul
-title Macro Player - Setup
+setlocal
+chcp 65001 >nul
+title Sky Macro Player - Setup
 
-echo ==================================================
-echo    MACRO PLAYER - CAI DAT TU DONG
-echo ==================================================
-echo.
-
-REM === KIEM TRA PYTHON ===
-python --version > nul 2>&1
-if %errorlevel% == 0 (
-    echo [OK] Da tim thay Python:
-    python --version
-    goto :InstallDeps
-)
-
-REM === PYTHON CHUA CO - TU DONG CAI ===
-echo [!] Khong tim thay Python. Dang tai Python 3.12...
-echo.
-
-set PYTHON_URL=https://www.python.org/ftp/python/3.12.9/python-3.12.9-amd64.exe
-set PYTHON_INSTALLER=%TEMP%\python_installer.exe
-
-REM Tai Python
-powershell -Command "& { Write-Host 'Dang tai Python...'; Invoke-WebRequest -Uri '%PYTHON_URL%' -OutFile '%PYTHON_INSTALLER%' -UseBasicParsing; Write-Host 'Tai xong!' }"
-
-if not exist "%PYTHON_INSTALLER%" (
-    echo [LOI] Khong the tai Python. Vui long kiem tra ket noi mang.
+pushd "%~dp0" || (
+    echo [ERROR] Cannot open the application directory.
     pause
     exit /b 1
 )
 
-echo [OK] Da tai xong. Dang cai Python (vui long doi)...
-"%PYTHON_INSTALLER%" /quiet InstallAllUsers=1 PrependPath=1 Include_pip=1
-
-REM Xoa file cai dat tam
-del "%PYTHON_INSTALLER%" > nul 2>&1
-
-REM Xac nhan lai
-python --version > nul 2>&1
-if %errorlevel% NEQ 0 (
-    echo [LOI] Cai Python that bai! Vui long cai thu cong: https://www.python.org
-    pause
-    exit /b 1
-)
-echo [OK] Da cai Python thanh cong!
-
-:InstallDeps
-echo.
-echo [*] Dang kiem tra/cai thu vien (pynput)...
-
-pip install -r requirements.txt --quiet
-if %errorlevel% NEQ 0 (
-    echo [LOI] Khong the cai pynput!
-    pause
-    exit /b 1
-)
-
-echo [OK] Da cai xong tat ca thu vien!
-echo.
 echo ==================================================
-echo    CAI DAT HOAN TAT! Dang khoi dong...
+echo    SKY MACRO PLAYER - LOCAL SETUP
 echo ==================================================
 echo.
+echo This setup creates an isolated .venv for this app.
+echo It does not require Administrator rights.
+echo.
 
-REM === CHAY APP ===
+set "PYTHON_CMD="
+where py >nul 2>&1
+if not errorlevel 1 (
+    py -3 -c "import sys; raise SystemExit(sys.version_info < (3, 10))" >nul 2>&1
+    if not errorlevel 1 set "PYTHON_CMD=py -3"
+)
+
+if not defined PYTHON_CMD (
+    where python >nul 2>&1
+    if not errorlevel 1 (
+        python -c "import sys; raise SystemExit(sys.version_info < (3, 10))" >nul 2>&1
+        if not errorlevel 1 set "PYTHON_CMD=python"
+    )
+)
+
+if not defined PYTHON_CMD (
+    echo [ERROR] Python 3.10 or newer was not found.
+    echo Install Python from https://www.python.org/downloads/
+    echo Enable "Add Python to PATH", then run setup.bat again.
+    echo.
+    pause
+    popd
+    exit /b 1
+)
+
+echo [1/3] Creating or repairing .venv...
+%PYTHON_CMD% -m venv ".venv"
+if errorlevel 1 goto :SetupFailed
+
+if not exist ".venv\Scripts\python.exe" (
+    echo [ERROR] The virtual environment was not created correctly.
+    goto :SetupFailed
+)
+
+echo [2/3] Installing pinned dependencies...
+".venv\Scripts\python.exe" -m pip install --requirement "requirements.txt"
+if errorlevel 1 goto :SetupFailed
+
+echo [3/3] Verifying the application runtime...
+".venv\Scripts\python.exe" -c "import PySide6, pynput; print('Runtime verification passed.')"
+if errorlevel 1 goto :SetupFailed
+
+echo.
+echo [OK] Setup completed. Starting Sky Macro Player...
 start "" wscript.exe "%~dp0start.vbs"
+popd
 exit /b 0
+
+:SetupFailed
+echo.
+echo [ERROR] Setup did not complete.
+echo Check the messages above, your network connection, and available disk space.
+echo No global Python packages were changed.
+echo.
+pause
+popd
+exit /b 1

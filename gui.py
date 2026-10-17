@@ -1,19 +1,35 @@
 import os
 import sys
 import json
+import random
 import threading
+import ctypes
+import ctypes.wintypes
 import tkinter as tk
 from tkinter import ttk, messagebox
 from pynput import keyboard as pynput_keyboard
 from macro_core import MacroPlayer
 
+# --- Windows API constants cho taskbar icon ---
+GWL_EXSTYLE       = -20
+WS_EX_APPWINDOW   = 0x00040000
+WS_EX_TOOLWINDOW  = 0x00000080
+SWP_NOSIZE        = 0x0001
+SWP_NOMOVE        = 0x0002
+SWP_NOACTIVATE    = 0x0010
+SWP_FRAMECHANGED  = 0x0020
+HWND_TOPMOST      = -1
+
 # ==========================================
 #  CÀI ĐẶT
 # ==========================================
-SHEETS_DIR = "sheets"
-FAVORITES_FILE = "favorites.json"
+# Dùng thư mục chứa file script làm gốc (fix lỗi chạy từ shortcut/desktop)
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+SHEETS_DIR = os.path.join(BASE_DIR, "sheets")
+FAVORITES_FILE = os.path.join(BASE_DIR, "favorites.json")
+HOTKEY_CONFIG_FILE = os.path.join(BASE_DIR, "hotkeys.json")
+
 NUM_HOTKEY_SLOTS = 8
-HOTKEY_CONFIG_FILE = "hotkeys.json"
 
 # Phím mặc định cho mỗi slot (tránh xung đột Steam)
 DEFAULT_HOTKEYS = ["f1", "f2", "f3", "f4", "f5", "f6", "f7", "f8"]
@@ -30,10 +46,11 @@ COLORS = {
     "success":     "#4ecca3",
     "warning":     "#f5a623",
     "list_sel":    "#e94560",
+    "highlight":   "#2a4a6e",   # Highlight bài đang phát
 }
 
 MINI_W, MINI_H   = 300, 44   # Kích thước mini bar
-FULL_W, FULL_H   = 480, 640  # Kích thước đầy đủ
+FULL_W, FULL_H   = 480, 680  # Kích thước đầy đủ (tăng chút cho nút mới)
 
 
 # ==========================================
@@ -44,7 +61,7 @@ class MacroGUI:
         self.root = root
         self.root.title("Macro Player")
 
-        # ── Ẩn frame Windows gốc (không dùng thanh tiêu đề hệ thống) ──
+        # ── Custom titlebar: ẩn thanh tiêu đề hệ thống ──
         self.root.overrideredirect(True)
         self.root.attributes("-topmost", True)
         self.root.configure(bg=COLORS["bg"])
@@ -52,6 +69,7 @@ class MacroGUI:
         # Độ trong suốt mặc định
         self._alpha = 0.95
         self._saved_layout = "old"  # Sẽ ghi đè nếu có config cũ
+        self._saved_countdown = 3   # Countdown mặc định 3s
         self.root.attributes("-alpha", self._alpha)
 
         # --- ENGINE ---
@@ -59,6 +77,7 @@ class MacroGUI:
         self.STOP_EVENT = threading.Event()
         self.PAUSE_EVENT = threading.Event()
         self.play_thread: threading.Thread | None = None
+        self._play_lock = threading.Lock()  # Lock cho is_playing
 
         # --- DỮ LIỆU ---
         self.song_files: list[str] = []
@@ -67,8 +86,14 @@ class MacroGUI:
         self.hotkey_keys: list[str] = list(DEFAULT_HOTKEYS)
         self.favorites: list[dict] = []
 
+        # --- PLAYLIST QUEUE ---
+        self._playlist_queue: list[str] = []     # Danh sách filepath
+        self._playlist_names: list[str] = []     # Tên bài tương ứng
+        self._playlist_index: int = -1            # Bài đang phát (-1 = không có)
+        self._playlist_mode: str = "off"          # "off" | "list" | "shuffle"
+
         # --- TRẠNG THÁI ---
-        self.is_playing     = False
+        self._is_playing    = False
         self._is_mini       = False
         self._binding_slot  = -1    # Slot đang chờ bind (-1 = không)
         self._drag_x        = 0
@@ -86,6 +111,23 @@ class MacroGUI:
         sw = self.root.winfo_screenwidth()
         sh = self.root.winfo_screenheight()
         self.root.geometry(f"{FULL_W}x{FULL_H}+{(sw-FULL_W)//2}+{(sh-FULL_H)//2}")
+
+        # ── Hiện trên Taskbar + Alt+Tab (dùng Windows API) ──
+        self.root.after(100, self._force_taskbar_icon)
+
+        # ── Auto re-assert topmost (chống mất khi game fullscreen) ──
+        self._start_topmost_guard()
+
+    # --- Thread-safe is_playing property ---
+    @property
+    def is_playing(self):
+        with self._play_lock:
+            return self._is_playing
+
+    @is_playing.setter
+    def is_playing(self, value):
+        with self._play_lock:
+            self._is_playing = value
 
     # ==========================================
     #  XÂY DỰNG GIAO DIỆN
@@ -207,13 +249,26 @@ class MacroGUI:
         )
         self._song_listbox.pack(side="left", fill="both", expand=True)
         scrollbar.config(command=self._song_listbox.yview)
+        # Double-click để phát
+        self._song_listbox.bind("<Double-Button-1>", lambda e: self._play_selected())
         self._refresh_song_listbox()
 
+        # Hàng nút 1: Phát + Dừng
         btn_frame = tk.Frame(parent, bg=COLORS["bg"])
-        btn_frame.pack(fill="x", padx=8, pady=(0, 8))
+        btn_frame.pack(fill="x", padx=8, pady=(0, 4))
         self._make_button(btn_frame, "▶  Phát", self._play_selected, COLORS["accent"]).pack(
             side="left", fill="x", expand=True, padx=(0, 4))
         self._make_button(btn_frame, "■  Dừng", self._stop_playback, COLORS["accent2"]).pack(
+            side="left", fill="x", expand=True)
+
+        # Hàng nút 2: Phát tất cả + Trộn bài + Skip
+        btn_frame2 = tk.Frame(parent, bg=COLORS["bg"])
+        btn_frame2.pack(fill="x", padx=8, pady=(0, 4))
+        self._make_button(btn_frame2, "▶▶  Phát tất cả", self._play_all_songs, COLORS["card"]).pack(
+            side="left", fill="x", expand=True, padx=(0, 4))
+        self._make_button(btn_frame2, "🔀  Trộn bài", self._shuffle_all_songs, COLORS["card"]).pack(
+            side="left", fill="x", expand=True, padx=(0, 4))
+        self._make_button(btn_frame2, "⏭  Skip", self._skip_to_next, COLORS["card"]).pack(
             side="left", fill="x", expand=True)
 
         self._make_button(parent, "❤  Thêm vào Album Yêu Thích", self._add_selected_to_fav, COLORS["card"]).pack(
@@ -303,12 +358,26 @@ class MacroGUI:
         )
         self._fav_listbox.pack(side="left", fill="both", expand=True)
         scrollbar.config(command=self._fav_listbox.yview)
+        # Double-click để phát
+        self._fav_listbox.bind("<Double-Button-1>", lambda e: self._play_fav_selected())
         self._refresh_fav_listbox()
+
+        # Hàng nút 1: Phát + Xóa
         btn_frame = tk.Frame(parent, bg=COLORS["bg"])
-        btn_frame.pack(fill="x", padx=8, pady=(0, 8))
+        btn_frame.pack(fill="x", padx=8, pady=(0, 4))
         self._make_button(btn_frame, "▶  Phát", self._play_fav_selected, COLORS["accent"]).pack(
             side="left", fill="x", expand=True, padx=(0, 4))
         self._make_button(btn_frame, "🗑  Xóa", self._remove_fav_selected, COLORS["accent2"]).pack(
+            side="left", fill="x", expand=True)
+
+        # Hàng nút 2: Phát Album + Trộn Album + Skip
+        btn_frame2 = tk.Frame(parent, bg=COLORS["bg"])
+        btn_frame2.pack(fill="x", padx=8, pady=(0, 8))
+        self._make_button(btn_frame2, "▶▶  Phát Album", self._play_all_fav, COLORS["card"]).pack(
+            side="left", fill="x", expand=True, padx=(0, 4))
+        self._make_button(btn_frame2, "🔀  Trộn Album", self._shuffle_all_fav, COLORS["card"]).pack(
+            side="left", fill="x", expand=True, padx=(0, 4))
+        self._make_button(btn_frame2, "⏭  Skip", self._skip_to_next, COLORS["card"]).pack(
             side="left", fill="x", expand=True)
 
     # --- TAB CÀI ĐẶT ---
@@ -357,6 +426,22 @@ class MacroGUI:
         # Áp dụng alpha đã lưu
         self.root.attributes("-alpha", self._alpha)
 
+        # Countdown
+        countdown_frame = tk.Frame(parent, bg=COLORS["panel"])
+        countdown_frame.pack(fill="x", padx=16, pady=8)
+        tk.Label(countdown_frame, text="⏱  Đếm ngược:", bg=COLORS["panel"], fg=COLORS["text"],
+                 font=("Segoe UI", 9, "bold")).pack(side="left", padx=12, pady=10)
+        self._countdown_var = tk.IntVar(value=self._saved_countdown)
+        for val in [1, 2, 3, 5]:
+            tk.Radiobutton(
+                countdown_frame, text=f"{val}s",
+                variable=self._countdown_var, value=val,
+                bg=COLORS["panel"], fg=COLORS["text"],
+                selectcolor=COLORS["card"],
+                activebackground=COLORS["panel"], activeforeground=COLORS["accent"],
+                command=self._change_countdown, font=("Segoe UI", 9)
+            ).pack(side="left", padx=6, pady=10)
+
         # Phím tắt
         info_frame = tk.Frame(parent, bg=COLORS["panel"])
         info_frame.pack(fill="x", padx=16, pady=8)
@@ -380,7 +465,7 @@ class MacroGUI:
                  font=("Segoe UI", 8)).pack(side="left")
 
         # Info cố định
-        for key, desc in [("F10", "Dừng hẳn bài (hủy)"), ("ESC", "Dừng khẩn cấp")]:
+        for key, desc in [("F10", "Dừng hẳn bài (hủy)"), ("F11", "Skip bài tiếp (playlist)"), ("ESC", "Dừng khẩn cấp")]:
             row = tk.Frame(info_frame, bg=COLORS["panel"])
             row.pack(fill="x", padx=12, pady=2)
             tk.Label(row, text=key, bg=COLORS["card"], fg=COLORS["accent"],
@@ -407,9 +492,10 @@ class MacroGUI:
         self._status_lbl = tk.Label(bar, text="Sẵn sàng", bg=COLORS["card"], fg=COLORS["text_dim"],
                                     font=("Segoe UI", 8))
         self._status_lbl.pack(side="left", pady=5)
-        tk.Label(bar, text=f"Bộ phím: {self.player.get_layout_name()}",
+        self._layout_status_lbl = tk.Label(bar, text=f"Bộ phím: {self.player.get_layout_name()}",
                  bg=COLORS["card"], fg=COLORS["text_dark"],
-                 font=("Segoe UI", 8)).pack(side="right", padx=10)
+                 font=("Segoe UI", 8))
+        self._layout_status_lbl.pack(side="right", padx=10)
 
     # ==========================================
     #  MINI MODE
@@ -457,12 +543,66 @@ class MacroGUI:
         """Thu nhỏ xuống taskbar (iconify). Cần bật lại overrideredirect tạm thời."""
         self.root.overrideredirect(False)
         self.root.iconify()
-        # Khi restore, bật lại overrideredirect
+        # Khi restore, bật lại overrideredirect + taskbar icon
         self.root.bind("<Map>", self._on_restore)
 
     def _on_restore(self, event=None):
         self.root.overrideredirect(True)
+        self.root.attributes("-topmost", True)
         self.root.unbind("<Map>")
+        # Khôi phục taskbar icon sau khi overrideredirect bật lại
+        self.root.after(50, self._force_taskbar_icon)
+
+    # ==========================================
+    #  TASKBAR + FULLSCREEN GUARD
+    # ==========================================
+    def _force_taskbar_icon(self):
+        """
+        Dùng Windows API để hiện window trên Taskbar + Alt+Tab
+        dù đang dùng overrideredirect(True).
+        Thêm WS_EX_APPWINDOW, bỏ WS_EX_TOOLWINDOW.
+        """
+        try:
+            hwnd = ctypes.windll.user32.GetParent(self.root.winfo_id())
+            if not hwnd:
+                hwnd = self.root.winfo_id()
+            # Đọc style hiện tại
+            style = ctypes.windll.user32.GetWindowLongW(hwnd, GWL_EXSTYLE)
+            # Bỏ TOOLWINDOW (ẩn khỏi taskbar), thêm APPWINDOW (hiện lên taskbar)
+            style = (style & ~WS_EX_TOOLWINDOW) | WS_EX_APPWINDOW
+            ctypes.windll.user32.SetWindowLongW(hwnd, GWL_EXSTYLE, style)
+            # Áp dụng thay đổi (cần hide rồi show lại)
+            ctypes.windll.user32.ShowWindow(hwnd, 0)  # SW_HIDE
+            ctypes.windll.user32.ShowWindow(hwnd, 5)  # SW_SHOW
+            # Đảm bảo vẫn topmost
+            ctypes.windll.user32.SetWindowPos(
+                hwnd, HWND_TOPMOST, 0, 0, 0, 0,
+                SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_FRAMECHANGED
+            )
+        except Exception as e:
+            print(f"[WARN] Khong the set taskbar icon: {e}")
+
+    def _start_topmost_guard(self):
+        """
+        Tự động re-assert topmost mỗi 5 giây.
+        Giúp window không bị chìm khi game fullscreen chiếm focus.
+        """
+        self._reassert_topmost()
+
+    def _reassert_topmost(self):
+        """Re-assert topmost bằng Windows API (mạnh hơn tkinter attributes)."""
+        try:
+            hwnd = ctypes.windll.user32.GetParent(self.root.winfo_id())
+            if not hwnd:
+                hwnd = self.root.winfo_id()
+            ctypes.windll.user32.SetWindowPos(
+                hwnd, HWND_TOPMOST, 0, 0, 0, 0,
+                SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE
+            )
+        except Exception:
+            pass
+        # Lặp lại mỗi 5 giây
+        self.root.after(5000, self._reassert_topmost)
 
     # ==========================================
     #  HELPER UI
@@ -498,6 +638,10 @@ class MacroGUI:
         self._alpha_lbl.config(text=f"{int(v*100)}%")
         self._save_hotkey_config()
 
+    def _change_countdown(self):
+        self._saved_countdown = self._countdown_var.get()
+        self._save_hotkey_config()
+
     # ==========================================
     #  DRAG
     # ==========================================
@@ -531,6 +675,8 @@ class MacroGUI:
         self._filtered_songs = [s for s in self.song_files if q in s.lower()]
         for name in self._filtered_songs:
             self._song_listbox.insert("end", f"  {name}")
+        # Khôi phục highlight bài đang phát
+        self._update_playing_highlight()
 
     def _filter_songs(self):
         self._refresh_song_listbox()
@@ -545,12 +691,24 @@ class MacroGUI:
         try:
             with open(FAVORITES_FILE, "r", encoding="utf-8") as f:
                 self.favorites = json.load(f)
-        except Exception:
+            # Normalize paths (fix backslash issue)
+            for song in self.favorites:
+                song["path"] = os.path.normpath(os.path.join(BASE_DIR, song["path"]))
+        except (json.JSONDecodeError, IOError) as e:
+            print(f"[WARN] Loi doc favorites: {e}")
             self.favorites = []
 
     def _save_favorites(self):
-        with open(FAVORITES_FILE, "w", encoding="utf-8") as f:
-            json.dump(self.favorites, f, indent=4, ensure_ascii=False)
+        # Lưu với relative path
+        save_list = []
+        for song in self.favorites:
+            rel_path = os.path.relpath(song["path"], BASE_DIR)
+            save_list.append({"name": song["name"], "type": song.get("type", "JSON"), "path": rel_path})
+        try:
+            with open(FAVORITES_FILE, "w", encoding="utf-8") as f:
+                json.dump(save_list, f, indent=4, ensure_ascii=False)
+        except IOError as e:
+            print(f"[WARN] Loi ghi favorites: {e}")
 
     def _refresh_fav_listbox(self):
         if not hasattr(self, "_fav_listbox"):
@@ -558,6 +716,8 @@ class MacroGUI:
         self._fav_listbox.delete(0, "end")
         for song in self.favorites:
             self._fav_listbox.insert("end", f"  {song['name']}")
+        # Khôi phục highlight bài đang phát
+        self._update_playing_highlight()
 
     def _add_selected_to_fav(self):
         sel = self._song_listbox.curselection()
@@ -566,7 +726,7 @@ class MacroGUI:
             return
         filename = self._filtered_songs[sel[0]]
         full_path = os.path.join(SHEETS_DIR, filename)
-        if any(s["path"] == full_path for s in self.favorites):
+        if any(s["name"] == filename for s in self.favorites):
             messagebox.showinfo("Thông báo", "Bài này đã có trong Album!", parent=self.root)
             return
         self.favorites.append({"name": filename, "type": "JSON", "path": full_path})
@@ -611,49 +771,90 @@ class MacroGUI:
     #  PHÁT NHẠC
     # ==========================================
     def _load_song_data(self, filepath):
+        """Đọc JSON từ file sheet nhạc. Thử UTF-16 trước, fallback UTF-8."""
         for enc in ("utf-16", "utf-8"):
             try:
                 with open(filepath, "r", encoding=enc) as f:
-                    return json.load(f)
+                    data = json.load(f)
+                # Validate cơ bản: kiểm tra songNotes tồn tại
+                if isinstance(data, list) and len(data) > 0:
+                    if "songNotes" not in data[0]:
+                        self._set_status("Lỗi: File thiếu 'songNotes'")
+                        return None
+                elif isinstance(data, dict):
+                    if "songNotes" not in data:
+                        self._set_status("Lỗi: File thiếu 'songNotes'")
+                        return None
+                return data
             except (UnicodeError, UnicodeDecodeError):
+                continue
+            except json.JSONDecodeError as e:
+                print(f"[WARN] JSON decode error ({enc}): {e}")
                 continue
             except Exception as e:
                 self._set_status(f"Lỗi đọc file: {e}")
                 return None
+        self._set_status("Lỗi: Không đọc được file (encoding)")
         return None
 
     def _play_song_file(self, filepath, song_name):
+        """Phát 1 bài. Chạy trong play_thread."""
         self.is_playing = True
-        self.root.after(0, lambda: self._set_status(f"▶  Đang phát: {song_name}", playing=True))
+        self.root.after(0, lambda: self._set_status(
+            self._format_playlist_status(song_name), playing=True))
+        self.root.after(0, self._update_playing_highlight)
+
         song_data = self._load_song_data(filepath)
         if song_data is None:
             self.is_playing = False
+            self.root.after(0, self._update_playing_highlight)
+            # Auto-advance nếu file lỗi
+            self.root.after(200, self._auto_advance)
             return
-        self.player.play_json_sheet(song_data, self.STOP_EVENT, self.PAUSE_EVENT)
+
+        countdown = getattr(self, "_saved_countdown", 3)
+        finished_ok = self.player.play_json_sheet(
+            song_data, self.STOP_EVENT, self.PAUSE_EVENT, countdown_sec=countdown)
+        
         self.is_playing = False
+        self.root.after(0, self._update_playing_highlight)
+
         if self.STOP_EVENT.is_set():
             self.root.after(0, lambda: self._set_status("■  Đã dừng"))
         else:
             self.root.after(0, lambda: self._set_status(f"✓  Xong: {song_name}"))
+            # Auto-advance: phát bài tiếp trong playlist
+            if finished_ok:
+                self.root.after(500, self._auto_advance)
 
     def _start_play(self, filepath, song_name):
+        """Phát 1 bài (dừng bài cũ nếu đang phát)."""
         if self.is_playing:
             self.STOP_EVENT.set()
             if self.play_thread and self.play_thread.is_alive():
-                self.play_thread.join(timeout=1.5)
+                self.play_thread.join(timeout=2.0)
         self.STOP_EVENT.clear()
         self.PAUSE_EVENT.clear()
         self._current_song_name = song_name
+        self._current_song_path = filepath
         self.play_thread = threading.Thread(
             target=self._play_song_file, args=(filepath, song_name), daemon=True
         )
         self.play_thread.start()
 
     def _stop_playback(self):
+        """Dừng bài đang phát VÀ hủy playlist."""
+        # Hủy playlist
+        self._playlist_mode = "off"
+        self._playlist_queue = []
+        self._playlist_names = []
+        self._playlist_index = -1
+
         if self.is_playing or (self.play_thread and self.play_thread.is_alive()):
             self.STOP_EVENT.set()
             self.PAUSE_EVENT.clear()
             self._set_status("■  Đang dừng...")
+        self.root.after(200, self._update_playing_highlight)
 
     def _toggle_pause(self):
         if not self.is_playing:
@@ -661,7 +862,9 @@ class MacroGUI:
         if self.PAUSE_EVENT.is_set():
             # Đang pause -> Resume
             self.PAUSE_EVENT.clear()
-            self.root.after(0, lambda: self._set_status(f"▶  Đang phát: {getattr(self, '_current_song_name', '...')}", playing=True))
+            self.root.after(0, lambda: self._set_status(
+                self._format_playlist_status(getattr(self, '_current_song_name', '...')),
+                playing=True))
         else:
             # Đang play -> Pause
             self.PAUSE_EVENT.set()
@@ -671,18 +874,30 @@ class MacroGUI:
             self.root.after(0, lambda: self._status_lbl.config(fg=COLORS["warning"]))
 
     def _play_selected(self):
+        """Phát bài đang chọn trong tab Nhạc (single)."""
         sel = self._song_listbox.curselection()
         if not sel:
             messagebox.showinfo("Thông báo", "Vui lòng chọn bài hát!", parent=self.root)
             return
+        # Tắt playlist mode
+        self._playlist_mode = "off"
+        self._playlist_queue = []
+        self._playlist_names = []
+        self._playlist_index = -1
         filename = self._filtered_songs[sel[0]]
         self._start_play(os.path.join(SHEETS_DIR, filename), filename)
 
     def _play_fav_selected(self):
+        """Phát bài đang chọn trong tab Album (single)."""
         sel = self._fav_listbox.curselection()
         if not sel:
             messagebox.showinfo("Thông báo", "Vui lòng chọn bài hát!", parent=self.root)
             return
+        # Tắt playlist mode
+        self._playlist_mode = "off"
+        self._playlist_queue = []
+        self._playlist_names = []
+        self._playlist_index = -1
         song = self.favorites[sel[0]]
         self._start_play(song["path"], song["name"])
 
@@ -695,6 +910,150 @@ class MacroGUI:
             self._set_status(f"Lỗi: Không tìm thấy '{filename}'")
             return
         self._start_play(filepath, filename)
+
+    # ==========================================
+    #  PLAYLIST SYSTEM
+    # ==========================================
+    def _build_playlist(self, filepaths, names, shuffle=False):
+        """Tạo playlist mới và bắt đầu phát."""
+        if not filepaths:
+            messagebox.showinfo("Thông báo", "Không có bài nào để phát!", parent=self.root)
+            return
+
+        self._playlist_queue = list(filepaths)
+        self._playlist_names = list(names)
+
+        if shuffle:
+            # Shuffle cùng nhau
+            combined = list(zip(self._playlist_queue, self._playlist_names))
+            random.shuffle(combined)
+            self._playlist_queue, self._playlist_names = zip(*combined)
+            self._playlist_queue = list(self._playlist_queue)
+            self._playlist_names = list(self._playlist_names)
+            self._playlist_mode = "shuffle"
+        else:
+            self._playlist_mode = "list"
+
+        self._playlist_index = 0
+        self._play_playlist_current()
+
+    def _play_playlist_current(self):
+        """Phát bài hiện tại trong playlist."""
+        if self._playlist_index < 0 or self._playlist_index >= len(self._playlist_queue):
+            self._playlist_mode = "off"
+            self._playlist_index = -1
+            self._set_status("✓  Đã phát xong playlist!")
+            self._update_playing_highlight()
+            return
+
+        filepath = self._playlist_queue[self._playlist_index]
+        name = self._playlist_names[self._playlist_index]
+        self._start_play(filepath, name)
+
+    def _auto_advance(self):
+        """Callback: tự động phát bài tiếp khi bài hiện tại xong."""
+        if self._playlist_mode == "off":
+            return
+        if self.STOP_EVENT.is_set():
+            return  # User đã nhấn stop
+
+        self._playlist_index += 1
+        if self._playlist_index < len(self._playlist_queue):
+            self._play_playlist_current()
+        else:
+            # Hết playlist
+            self._playlist_mode = "off"
+            self._playlist_index = -1
+            self._set_status("✓  Đã phát xong playlist!")
+            self._update_playing_highlight()
+
+    def _skip_to_next(self):
+        """Skip sang bài tiếp trong playlist."""
+        if self._playlist_mode == "off":
+            self._set_status("Không có playlist đang phát")
+            return
+
+        # Dừng bài hiện tại (nhưng KHÔNG hủy playlist)
+        if self.is_playing or (self.play_thread and self.play_thread.is_alive()):
+            self.STOP_EVENT.set()
+            if self.play_thread and self.play_thread.is_alive():
+                self.play_thread.join(timeout=2.0)
+
+        self.STOP_EVENT.clear()
+        self.PAUSE_EVENT.clear()
+        self._playlist_index += 1
+        if self._playlist_index < len(self._playlist_queue):
+            self._play_playlist_current()
+        else:
+            self._playlist_mode = "off"
+            self._playlist_index = -1
+            self._set_status("✓  Đã phát hết playlist!")
+            self._update_playing_highlight()
+
+    def _format_playlist_status(self, song_name):
+        """Format status text với info playlist."""
+        if self._playlist_mode != "off" and self._playlist_index >= 0:
+            total = len(self._playlist_queue)
+            current = self._playlist_index + 1
+            mode_icon = "🔀" if self._playlist_mode == "shuffle" else "📋"
+            return f"▶  {song_name}  {mode_icon} ({current}/{total})"
+        return f"▶  Đang phát: {song_name}"
+
+    # --- Playlist từ Tab Nhạc ---
+    def _play_all_songs(self):
+        """Phát tất cả bài trong danh sách hiện tại (đã filter)."""
+        songs = self._filtered_songs if hasattr(self, "_filtered_songs") else self.song_files
+        filepaths = [os.path.join(SHEETS_DIR, s) for s in songs]
+        self._build_playlist(filepaths, list(songs), shuffle=False)
+
+    def _shuffle_all_songs(self):
+        """Trộn bài rồi phát tất cả."""
+        songs = self._filtered_songs if hasattr(self, "_filtered_songs") else self.song_files
+        filepaths = [os.path.join(SHEETS_DIR, s) for s in songs]
+        self._build_playlist(filepaths, list(songs), shuffle=True)
+
+    # --- Playlist từ Tab Album ---
+    def _play_all_fav(self):
+        """Phát toàn bộ Album Yêu Thích theo thứ tự."""
+        if not self.favorites:
+            messagebox.showinfo("Thông báo", "Album trống!", parent=self.root)
+            return
+        filepaths = [s["path"] for s in self.favorites]
+        names = [s["name"] for s in self.favorites]
+        self._build_playlist(filepaths, names, shuffle=False)
+
+    def _shuffle_all_fav(self):
+        """Trộn Album rồi phát."""
+        if not self.favorites:
+            messagebox.showinfo("Thông báo", "Album trống!", parent=self.root)
+            return
+        filepaths = [s["path"] for s in self.favorites]
+        names = [s["name"] for s in self.favorites]
+        self._build_playlist(filepaths, names, shuffle=True)
+
+    # ==========================================
+    #  HIGHLIGHT BÀI ĐANG PHÁT
+    # ==========================================
+    def _update_playing_highlight(self):
+        """Highlight bài đang phát trong cả 2 listbox."""
+        current_name = getattr(self, "_current_song_name", None)
+        is_active = self.is_playing
+
+        # Highlight trong Song listbox
+        if hasattr(self, "_song_listbox") and hasattr(self, "_filtered_songs"):
+            for i in range(self._song_listbox.size()):
+                if is_active and current_name and i < len(self._filtered_songs) and self._filtered_songs[i] == current_name:
+                    self._song_listbox.itemconfig(i, bg=COLORS["highlight"], fg=COLORS["success"])
+                else:
+                    self._song_listbox.itemconfig(i, bg=COLORS["panel"], fg=COLORS["text"])
+
+        # Highlight trong Fav listbox
+        if hasattr(self, "_fav_listbox"):
+            for i in range(self._fav_listbox.size()):
+                if is_active and current_name and i < len(self.favorites) and self.favorites[i]["name"] == current_name:
+                    self._fav_listbox.itemconfig(i, bg=COLORS["highlight"], fg=COLORS["success"])
+                else:
+                    self._fav_listbox.itemconfig(i, bg=COLORS["panel"], fg=COLORS["text"])
 
     # ==========================================
     #  REBIND HOTKEY
@@ -801,7 +1160,12 @@ class MacroGUI:
             if key_name in ("esc", "f10"):
                 self._stop_playback()
                 return
-                
+
+            # --- Phím Skip (F11) ---
+            if key_name == "f11":
+                self.root.after(0, self._skip_to_next)
+                return
+
             # --- Phím Tạm dừng/Tiếp tục ---
             if key_name == self.pause_hotkey:
                 self._toggle_pause()
@@ -812,8 +1176,8 @@ class MacroGUI:
                 if key_name == bound_key:
                     self.root.after(0, lambda idx=i: self._play_hotkey_slot(idx))
                     return
-        except Exception:
-            pass
+        except Exception as e:
+            print(f"[WARN] Global key error: {e}")
 
     def _start_global_listener(self):
         listener = pynput_keyboard.Listener(on_press=self._on_press_global)
@@ -832,11 +1196,12 @@ class MacroGUI:
                 "layout": self.player.current_layout,
                 "alpha":  self._alpha,
                 "pause_hotkey": getattr(self, "pause_hotkey", "f9"),
+                "countdown": getattr(self, "_saved_countdown", 3),
             }
             with open(HOTKEY_CONFIG_FILE, "w", encoding="utf-8") as f:
                 json.dump(data, f, indent=2, ensure_ascii=False)
-        except Exception:
-            pass
+        except IOError as e:
+            print(f"[WARN] Loi ghi config: {e}")
 
     def _load_hotkey_config(self):
         """Tải cấu hình cũ khi khởi động."""
@@ -866,9 +1231,13 @@ class MacroGUI:
             # Độ trong suốt
             alpha = data.get("alpha", 0.95)
             self._alpha = float(alpha)
-        except Exception:
+
+            # Countdown
+            self._saved_countdown = data.get("countdown", 3)
+
+        except (json.JSONDecodeError, IOError) as e:
+            print(f"[WARN] Loi doc config: {e}")
             self.pause_hotkey = "f9"
-            pass
 
     # ==========================================
     #  CÀI ĐẶT
@@ -876,6 +1245,8 @@ class MacroGUI:
     def _change_layout(self):
         self.player.set_key_layout(self._layout_var.get())
         self._set_status(f"Đã đổi sang: {self.player.get_layout_name()}")
+        if hasattr(self, "_layout_status_lbl"):
+            self._layout_status_lbl.config(text=f"Bộ phím: {self.player.get_layout_name()}")
         self._save_hotkey_config()
 
     # ==========================================

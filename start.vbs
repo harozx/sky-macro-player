@@ -1,36 +1,61 @@
-' Macro Player Launcher
-' - Check for Python & pynput
-' - If missing: run setup.bat to install
-' - If ready: launch gui.py silently (no CMD window)
+Option Explicit
 
-Dim objFSO, objShell, strDir
-Set objFSO   = CreateObject("Scripting.FileSystemObject")
-Set objShell = CreateObject("Shell.Application")
-strDir = objFSO.GetParentFolderName(WScript.ScriptFullName)
+Dim fso, shell, shellApp, appDir, pythonPath, pythonwPath, appPath, setupPath
+Set fso = CreateObject("Scripting.FileSystemObject")
+Set shell = CreateObject("WScript.Shell")
+Set shellApp = CreateObject("Shell.Application")
 
-' === CHECK PYTHON & PYNPUT ===
-Dim objExec, bNeedSetup
-bNeedSetup = False
+appDir = fso.GetParentFolderName(WScript.ScriptFullName)
+pythonPath = fso.BuildPath(appDir, ".venv\Scripts\python.exe")
+pythonwPath = fso.BuildPath(appDir, ".venv\Scripts\pythonw.exe")
+appPath = fso.BuildPath(appDir, "gui_qt.py")
+setupPath = fso.BuildPath(appDir, "setup.bat")
+
+If Not fso.FileExists(appPath) Then
+    MsgBox "Cannot start Sky Macro Player." & vbCrLf & vbCrLf & _
+           "Missing application file:" & vbCrLf & appPath, _
+           vbOKOnly + vbCritical, "Sky Macro Player - Missing File"
+    WScript.Quit 2
+End If
+
+If Not fso.FileExists(pythonwPath) Or Not fso.FileExists(pythonPath) Then
+    Dim answer
+    answer = MsgBox( _
+        "The local application environment is not installed." & vbCrLf & vbCrLf & _
+        "Open setup now? Administrator rights are not required.", _
+        vbYesNo + vbQuestion, "Sky Macro Player - Setup Required")
+
+    If answer = vbYes Then
+        If Not fso.FileExists(setupPath) Then
+            MsgBox "Setup file is missing:" & vbCrLf & setupPath, _
+                   vbOKOnly + vbCritical, "Sky Macro Player - Missing File"
+            WScript.Quit 3
+        End If
+        shellApp.ShellExecute setupPath, "", appDir, "", 1
+    End If
+    WScript.Quit 0
+End If
+
+Dim command, result
+command = """" & pythonPath & """ -c ""import PySide6, pynput"""
+result = shell.Run(command, 0, True)
+If result <> 0 Then
+    MsgBox "The local environment is incomplete or damaged." & vbCrLf & vbCrLf & _
+           "Run setup.bat to repair the pinned dependencies.", _
+           vbOKOnly + vbCritical, "Sky Macro Player - Runtime Error"
+    shellApp.ShellExecute setupPath, "", appDir, "", 1
+    WScript.Quit 5
+End If
+
+command = """" & pythonwPath & """ """ & appPath & """"
 
 On Error Resume Next
-Set objExec = CreateObject("WScript.Shell").Exec("python -c ""import pynput""")
-objExec.StdOut.ReadAll()
-If objExec.ExitCode <> 0 Then bNeedSetup = True
-On Error GoTo 0
-
-' === NEED SETUP? ===
-If bNeedSetup Then
-    Dim answer
-    answer = MsgBox("Python or pynput not found." & Chr(13) & Chr(13) & _
-                    "Press YES to auto-install and run." & Chr(13) & _
-                    "Press NO to exit.", _
-                    vbYesNo + vbQuestion, "Macro Player - Setup Required")
-    If answer = vbYes Then
-        ' Run setup.bat with admin rights (needed for Python install)
-        objShell.ShellExecute "cmd.exe", _
-            "/c """ & strDir & "\setup.bat""", strDir, "runas", 1
-    End If
-Else
-    ' === ALL GOOD: LAUNCH WITHOUT ADMIN ===
-    CreateObject("WScript.Shell").Run "pythonw.exe """ & strDir & "\gui.py""", 0, False
+result = shell.Run(command, 0, False)
+If Err.Number <> 0 Then
+    MsgBox "Sky Macro Player could not be launched." & vbCrLf & vbCrLf & _
+           "Error " & Err.Number & ": " & Err.Description & vbCrLf & _
+           "Run setup.bat to repair the local environment.", _
+           vbOKOnly + vbCritical, "Sky Macro Player - Launch Error"
+    WScript.Quit 4
 End If
+On Error GoTo 0

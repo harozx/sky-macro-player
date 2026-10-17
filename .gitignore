@@ -20,3 +20,18 @@ dist/
 # User data (generated at runtime)
 hotkeys.json
 favorites.json
+
+# Test, preview, and runtime log artifacts
+.test-tmp*/
+.ui-test-tmp*/
+ui-preview.png
+ui-preview-final.png
+logs/*.log
+
+# Tool caches
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+ui-preview*.png

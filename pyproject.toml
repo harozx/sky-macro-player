@@ -1,0 +1,40 @@
+[build-system]
+requires = ["setuptools>=75,<82"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "sky-macro-player"
+version = "2.0.0"
+description = "Desktop music-sheet player for Sky"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "PySide6==6.11.2",
+    "pynput==1.8.1",
+]
+
+[project.scripts]
+sky-instrument-console = "gui_qt:main"
+
+[tool.setuptools]
+py-modules = [
+    "gui_qt",
+    "macro_core",
+    "sky_ui_core",
+    "sky_ui_shell",
+    "sky_ui_window",
+    "sky_ui_integrated",
+    "sky_ui_polish",
+    "sky_ui_final",
+]
+
+[tool.setuptools.packages.find]
+include = ["macro_player*"]
+
+[tool.setuptools.data-files]
+"share/sky-macro-player/sheets" = ["sheets/*.json", "sheets/*.txt"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+qt_api = "pyside6"
+addopts = "-ra --basetemp=.test-tmp"
