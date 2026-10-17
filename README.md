@@ -110,7 +110,12 @@ migration, atomic persistence, UI state, hotkey rollback, and logging.
 
 The visual and interaction contract is documented in `docs/UI_DESIGN.md`.
 
-## Status
+## License
 
-The application has no declared open-source license in this repository. Add a
-license file before redistributing modified builds.
+The application source code is released under the [MIT License](LICENSE).
+The music sheets in `sheets/` are community transcriptions and are **not**
+covered by that license; the underlying songs may be protected by copyright
+held by their original authors. Use them for personal, non-commercial play.
+
+Automating keyboard input may be restricted by a game's terms of service.
+Use the app responsibly and at your own risk.
