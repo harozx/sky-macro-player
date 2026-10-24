@@ -56,7 +56,7 @@ the game loses focus.
 
 ### Installer or portable build (recommended)
 
-Download from [Releases](https://github.com/harozx/macro_project/releases):
+Download from [Releases](https://github.com/harozx/sky-macro-player/releases):
 
 - `SkyMacroPlayer-Setup-<version>.exe` installs for your Windows user only,
   without Administrator rights, and adds Start-menu shortcuts.

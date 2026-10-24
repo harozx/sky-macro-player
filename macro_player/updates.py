@@ -11,8 +11,8 @@ from PySide6.QtNetwork import QNetworkAccessManager, QNetworkReply, QNetworkRequ
 from . import __version__
 from .i18n import tr
 
-RELEASES_API = "https://api.github.com/repos/harozx/macro_project/releases/latest"
-RELEASES_PAGE = "https://github.com/harozx/macro_project/releases/latest"
+RELEASES_API = "https://api.github.com/repos/harozx/sky-macro-player/releases/latest"
+RELEASES_PAGE = "https://github.com/harozx/sky-macro-player/releases/latest"
 
 
 def parse_version(value: str) -> tuple[int, ...]:
