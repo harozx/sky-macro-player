@@ -63,7 +63,8 @@ Download from [Releases](https://github.com/harozx/sky-macro-player/releases):
 - `SkyMacroPlayer-<version>-portable.zip`: unzip anywhere and run
   `SkyMacroPlayer.exe`.
 
-Python is not required for these builds.
+Python is not required for these builds. See [CHANGELOG.md](CHANGELOG.md) for
+what changed in each version.
 
 ### From source
 
